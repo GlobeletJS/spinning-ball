@@ -1,0 +1,46 @@
+{
+  "version": "0.0.1",
+  "files": [
+    "dist"
+  ],
+  "directories": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npm run build-module && npm run build-examples",
+    "build-module": "rollup -c build/rollup.config.js",
+    "build-examples": "npm run rollup-examples",
+    "rollup-examples": "cd examples && rollup -c"
+  },
+  "author": "Jeshurun Hembd",
+  "license": "MIT",
+  "devDependencies": {
+    "d3-geo": "^1.11.6",
+    "d3-geo-projection": "^2.7.0",
+    "http-server": "^0.11.1",
+    "rollup": "^1.11.3",
+    "rollup-plugin-commonjs": "^9.3.4",
+    "rollup-plugin-json": "^4.0.0",
+    "rollup-plugin-node-resolve": "^4.2.3",
+    "topojson-client": "^3.0.0",
+    "yawgl": "github:jjhembd/yawgl"
+  },
+  "name": "spinning-ball",
+  "description": "Simulate the position and motion of a camera above the Earth",
+  "main": "dist/spinning-ball.bundle.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jjhembd/spinning-ball.git"
+  },
+  "keywords": [
+    "globe",
+    "satellite"
+  ],
+  "bugs": {
+    "url": "https://github.com/jjhembd/spinning-ball/issues"
+  },
+  "homepage": "https://github.com/jjhembd/spinning-ball#readme",
+  "dependencies": {
+    "gl-matrix": "^3.0.0",
+    "touchy": "github:jjhembd/touchy"
+  }
+}
