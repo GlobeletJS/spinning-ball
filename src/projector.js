@@ -13,8 +13,8 @@ export function initProjector(ellipsoid, camPosition, camInverse, screen) {
     ellipsoid.geodetic2ecef(ecefTmp, lonLat);
     let visible = ecefToScreenRay(rayVec, ecefTmp); // Overwrites rayVec!
 
-    xy[0] = screen.viewport.width * ( 1 + rayVec[0] / screen.rightEdge() ) / 2;
-    xy[1] = screen.viewport.height * ( 1 - rayVec[1] / screen.topEdge() ) / 2;
+    xy[0] = screen.width() * ( 1 + rayVec[0] / screen.rightEdge() ) / 2;
+    xy[1] = screen.height() * ( 1 - rayVec[1] / screen.topEdge() ) / 2;
     return visible;
   }
 

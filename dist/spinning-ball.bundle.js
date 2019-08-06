@@ -1,3 +1,75 @@
+// Very similar to greggman's module:
+
+function initView(porthole, fieldOfView) {
+  // The porthole is an HTML element acting as a window into a 3D world
+  // fieldOfView is the vertical view angle range in degrees (floating point)
+
+  // Compute values for transformation between the 3D world and the 2D porthole
+  var portRect, width, height, aspect;
+  var tanFOV = Math.tan(fieldOfView * Math.PI / 180.0 / 2.0);
+  const maxRay = [];
+
+  computeRayParams(); // Set initial values
+
+  return {
+    element: porthole, // Back-reference
+    changed: computeRayParams,
+
+    width: () => width,
+    height: () => height,
+    topEdge: () => maxRay[1],   // tanFOV
+    rightEdge: () => maxRay[0], // aspect * tanFOV
+    maxRay, // TODO: is it good to expose local state?
+    getRayParams,
+  };
+
+  function computeRayParams() {
+    // Compute porthole size
+    portRect = porthole.getBoundingClientRect();
+    let newWidth = portRect.right - portRect.left;
+    let newHeight = portRect.bottom - portRect.top;
+
+    // Exit if no change
+    if (width === newWidth && height === newHeight) return false;
+
+    // Update stored values
+    width = newWidth;
+    height = newHeight;
+    aspect = width / height;
+    maxRay[0] = aspect * tanFOV;
+    maxRay[1] = tanFOV; // Probably no change, but it is exposed externally
+
+    // Let the calling program know that the porthole changed
+    return true;
+  }
+
+  // Convert a position on the screen into tangents of the angles
+  // (relative to screen normal) of a ray shooting off into the 3D space
+  function getRayParams(rayVec, clientX, clientY) {
+    // NOTE strange behavior of getBoundingClientRect()
+    // rect.left and .top are equal to the coordinates given by clientX/Y
+    // when the mouse is at the left top pixel in the box.
+    // rect.right and .bottom are NOT equal to clientX/Y at the bottom
+    // right pixel -- they are one more than the clientX/Y values.
+    // Thus the number of pixels in the box is given by 
+    //    porthole.clientWidth = rect.right - rect.left  (NO +1 !!)
+    var x = clientX - portRect.left;
+    var y = portRect.bottom - clientY - 1; // Flip sign to make +y upward
+
+    // Normalized distances from center of box. We normalize by pixel DISTANCE
+    // rather than pixel count, to ensure we get -1 and +1 at the ends.
+    // (Confirm by considering the 2x2 case)
+    var xratio = 2 * x / (width - 1) - 1;
+    var yratio = 2 * y / (height - 1) -1;
+
+    rayVec[0] = xratio * maxRay[0];
+    rayVec[1] = yratio * maxRay[1];
+    //rayVec[2] = -1.0;
+    //rayVec[3] = 0.0;
+    return;
+  }
+}
+
 function initCursor() {
   // What does an animation need to know about the cursor at each frame?
   // First, whether the user did any of the following since the last frame:
@@ -1231,8 +1303,8 @@ function initProjector(ellipsoid, camPosition, camInverse, screen) {
     ellipsoid.geodetic2ecef(ecefTmp, lonLat);
     let visible = ecefToScreenRay(rayVec, ecefTmp); // Overwrites rayVec!
 
-    xy[0] = screen.viewport.width * ( 1 + rayVec[0] / screen.rightEdge() ) / 2;
-    xy[1] = screen.viewport.height * ( 1 - rayVec[1] / screen.topEdge() ) / 2;
+    xy[0] = screen.width() * ( 1 + rayVec[0] / screen.rightEdge() ) / 2;
+    xy[1] = screen.height() * ( 1 - rayVec[1] / screen.topEdge() ) / 2;
     return visible;
   }
 
@@ -1460,12 +1532,18 @@ function initCursor3d(getRayParams, ellipsoid, initialPosition) {
   }
 }
 
+const degrees = 180.0 / Math.PI;
+
 function initSpinningBall(display, center, altitude) {
-  // Input display is an object created by yawgl.initView()
-  // Input initialPos is an array containing longitude, latitude, altitude
+  // Input display is an HTML element where the ball will be represented
+  // Input center is a pointer to a 2-element array containing initial
+  // longitude and latitude for the camera
+  // Input altitude is a floating point value indicating initial altitude
 
   // Add event handlers and position tracking to display element
-  const cursor2d = initTouchy(display.element);
+  const cursor2d = initTouchy(display);
+  // Add a view object to compute ray parameters at points on the display
+  const view = initView(display, 25.0);
 
   // Initialize ellipsoid, and methods for computing positions relative to it
   const ellipsoid = initEllipsoid();
@@ -1473,16 +1551,15 @@ function initSpinningBall(display, center, altitude) {
   // Initialize camera dynamics: time, position, velocity, etc.
   // First check and convert user parameters for initial position
   var initialPos = (center && Array.isArray(center) && center.length === 2)
-    ? [toRadians(center[0]), toRadians(center[1])]
+    ? [center[0] / degrees, center[1] / degrees]
     : [0.0, 0.0];
   initialPos[2] = (altitude)
     ? altitude
     : 4.0 * ellipsoid.meanRadius();
-  const camera = initCameraDynamics(display, ellipsoid, initialPos);
+  const camera = initCameraDynamics(view, ellipsoid, initialPos);
 
   // Initialize interaction with the ellipsoid via the mouse and screen
-  const cursor3d = initCursor3d( display.getRayParams, 
-      ellipsoid, camera.position );
+  const cursor3d = initCursor3d(view.getRayParams, ellipsoid, camera.position);
 
   var camMoving, cursorChanged;
 
@@ -1503,11 +1580,12 @@ function initSpinningBall(display, center, altitude) {
     update,
   };
 
-  function update(time, resized) {
+  function update(time) {
     // Input time is a primitive floating point value representing the 
     // number of seconds since the last call
-    // Input resized is a primitive Boolean indicating whether the display
-    // has been resized since the last call
+
+    // Check for changes in display size
+    let resized = view.changed();
 
     // Update camera dynamics
     camMoving = camera.update(time, resized, cursor3d);
@@ -1518,10 +1596,6 @@ function initSpinningBall(display, center, altitude) {
 
     return camMoving;
   }
-}
-
-function toRadians(degrees) {
-  return degrees * Math.PI / 180.0;
 }
 
 export { initSpinningBall };

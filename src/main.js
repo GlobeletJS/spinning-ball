@@ -1,14 +1,21 @@
+import { initView } from 'yawgl';
 import { initTouchy } from 'touchy';
 import { initEllipsoid } from "./ellipsoid.js";
 import { initCameraDynamics } from "./physics.js";
 import { initCursor3d } from "./cursor3d.js";
 
+const degrees = 180.0 / Math.PI;
+
 export function initSpinningBall(display, center, altitude) {
-  // Input display is an object created by yawgl.initView()
-  // Input initialPos is an array containing longitude, latitude, altitude
+  // Input display is an HTML element where the ball will be represented
+  // Input center is a pointer to a 2-element array containing initial
+  // longitude and latitude for the camera
+  // Input altitude is a floating point value indicating initial altitude
 
   // Add event handlers and position tracking to display element
-  const cursor2d = initTouchy(display.element);
+  const cursor2d = initTouchy(display);
+  // Add a view object to compute ray parameters at points on the display
+  const view = initView(display, 25.0);
 
   // Initialize ellipsoid, and methods for computing positions relative to it
   const ellipsoid = initEllipsoid();
@@ -16,16 +23,15 @@ export function initSpinningBall(display, center, altitude) {
   // Initialize camera dynamics: time, position, velocity, etc.
   // First check and convert user parameters for initial position
   var initialPos = (center && Array.isArray(center) && center.length === 2)
-    ? [toRadians(center[0]), toRadians(center[1])]
+    ? [center[0] / degrees, center[1] / degrees]
     : [0.0, 0.0];
   initialPos[2] = (altitude)
     ? altitude
     : 4.0 * ellipsoid.meanRadius();
-  const camera = initCameraDynamics(display, ellipsoid, initialPos);
+  const camera = initCameraDynamics(view, ellipsoid, initialPos);
 
   // Initialize interaction with the ellipsoid via the mouse and screen
-  const cursor3d = initCursor3d( display.getRayParams, 
-      ellipsoid, camera.position );
+  const cursor3d = initCursor3d(view.getRayParams, ellipsoid, camera.position);
 
   var camMoving, cursorChanged;
 
@@ -46,11 +52,12 @@ export function initSpinningBall(display, center, altitude) {
     update,
   };
 
-  function update(time, resized) {
+  function update(time) {
     // Input time is a primitive floating point value representing the 
     // number of seconds since the last call
-    // Input resized is a primitive Boolean indicating whether the display
-    // has been resized since the last call
+
+    // Check for changes in display size
+    let resized = view.changed();
 
     // Update camera dynamics
     camMoving = camera.update(time, resized, cursor3d);
@@ -61,8 +68,4 @@ export function initSpinningBall(display, center, altitude) {
 
     return camMoving;
   }
-}
-
-function toRadians(degrees) {
-  return degrees * Math.PI / 180.0;
 }

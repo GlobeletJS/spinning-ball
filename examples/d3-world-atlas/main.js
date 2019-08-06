@@ -1,4 +1,4 @@
-import { initView, resizeCanvasToDisplaySize } from 'yawgl';
+import { resizeCanvasToDisplaySize } from 'yawgl';
 import { geoSatellite } from 'd3-geo-projection';
 import * as d3 from 'd3-geo';
 import * as topojson from 'topojson-client';
@@ -14,7 +14,6 @@ const degrees = 180 / Math.PI;
 
 export function main() {
   const globeDiv = document.getElementById("globe");
-  const globeView = initView(globeDiv, globeDiv, fieldOfView);
 
   const canvas = document.getElementById("globeCanvas");
   resizeCanvasToDisplaySize(canvas);
@@ -24,7 +23,7 @@ export function main() {
   // Save default styles
   context.save();
 
-  const ball = initSpinningBall(globeView, center, altitude);
+  const ball = initSpinningBall(globeDiv, center, altitude);
 
   const projection = geoSatellite()
     .translate([numPixelsX / 2, numPixelsY / 2])
@@ -54,20 +53,18 @@ export function main() {
 
   function animate(time) {
     time *= 0.001; // Convert milliseconds to seconds
+    let moving = ball.update(time);
 
     // Check for changes in display sizes
-    var resized = resizeCanvasToDisplaySize(canvas);
-    resized = globeView.changed() || resized;
+    let resized = resizeCanvasToDisplaySize(canvas);
     if (resized) {
       numPixelsX = canvas.clientWidth;
       numPixelsY = canvas.clientHeight;
       projection.translate([numPixelsX / 2, numPixelsY / 2]);
     }
 
-    var moving = ball.update(time, resized);
-    if (moving) hiRes = false;
-
     if (moving) {         // Draw low-res globe
+      hiRes = false;
       drawLoRes();
     } else if (!hiRes) {  // Motion stopped. Draw hi-res globe
       drawHiRes();

@@ -21,8 +21,7 @@
     "rollup-plugin-commonjs": "^9.3.4",
     "rollup-plugin-json": "^4.0.0",
     "rollup-plugin-node-resolve": "^4.2.3",
-    "topojson-client": "^3.0.0",
-    "yawgl": "github:jjhembd/yawgl"
+    "topojson-client": "^3.0.0"
   },
   "name": "spinning-ball",
   "description": "Simulate the position and motion of a camera above the Earth",
@@ -41,6 +40,7 @@
   "homepage": "https://github.com/jjhembd/spinning-ball#readme",
   "dependencies": {
     "gl-matrix": "^3.0.0",
-    "touchy": "github:jjhembd/touchy"
+    "touchy": "github:jjhembd/touchy",
+    "yawgl": "github:jjhembd/yawgl"
   }
 }
