@@ -36,6 +36,8 @@ export function initSpinningBall(display, center, altitude) {
   var camMoving, cursorChanged;
 
   return {
+    view,
+
     radius:    ellipsoid.meanRadius,
 
     camMoving: () => camMoving,
