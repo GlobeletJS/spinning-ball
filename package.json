@@ -9,7 +9,8 @@
     "build": "npm run build-module && npm run build-examples",
     "build-module": "rollup -c build/rollup.config.js",
     "build-examples": "npm run rollup-examples",
-    "rollup-examples": "cd examples && rollup -c"
+    "rollup-examples": "cd examples && rollup -c",
+    "postversion": "git push && git push --tags"
   },
   "author": "Jeshurun Hembd",
   "license": "MIT",
@@ -26,6 +27,7 @@
   "name": "spinning-ball",
   "description": "Simulate the position and motion of a camera above the Earth",
   "main": "dist/spinning-ball.bundle.js",
+  "module": "dist/spinning-ball.bundle.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jjhembd/spinning-ball.git"

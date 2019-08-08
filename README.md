@@ -25,7 +25,8 @@ simple D3 renderer.
 
 ## Initialization
 initSpinningBall takes three parameters:
-- display: A display object created by [yawgl] initView
+- display: An HTML element where the globe will be represented, and where the
+  user's client will generate interaction events
 - center: A 2-element array of [longitude, latitude] in degrees, indicating
   the initial horizontal position of the camera
 - altitude: A floating point value indicating the initial altitude of the
