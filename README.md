@@ -24,7 +24,7 @@ simple D3 renderer.
 [d3-world-atlas example]: https://jjhembd.github.io/spinning-ball/examples/d3-world-atlas/index.html
 
 ## Initialization
-initSpinningBall takes three parameters:
+spinningBall.init takes three parameters:
 - display: An HTML element where the globe will be represented, and where the
   user's client will generate interaction events
 - center: A 2-element array of [longitude, latitude] in degrees, indicating
@@ -59,8 +59,8 @@ Initialization returns an object with the following properties and methods:
 - update(time, resized): Updates the position and velocity of the camera,
   taking into account any current velocities, and computing new accelerations
   induced by mouse or touch interactions.
-  - Input time (floating point) is the number of seconds since the previous
-    call to update()
+  - Input time (floating point) is the current time in seconds. If using
+    requestAnimationFrame, its argument should be multiplied by 0.001
   - Input resized (Boolean) is a flag indicating whether the display element
     has been resized since the last call to update()
   - Return value is a flag indicating whether the display should be

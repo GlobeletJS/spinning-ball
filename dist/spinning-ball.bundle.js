@@ -1534,7 +1534,7 @@ function initCursor3d(getRayParams, ellipsoid, initialPosition) {
 
 const degrees = 180.0 / Math.PI;
 
-function initSpinningBall(display, center, altitude) {
+function init(display, center, altitude) {
   // Input display is an HTML element where the ball will be represented
   // Input center is a pointer to a 2-element array containing initial
   // longitude and latitude for the camera
@@ -1584,7 +1584,7 @@ function initSpinningBall(display, center, altitude) {
 
   function update(time) {
     // Input time is a primitive floating point value representing the 
-    // number of seconds since the last call
+    // time this function was called, in seconds
 
     // Check for changes in display size
     let resized = view.changed();
@@ -1600,4 +1600,4 @@ function initSpinningBall(display, center, altitude) {
   }
 }
 
-export { initSpinningBall };
+export { init };

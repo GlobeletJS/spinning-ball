@@ -2,7 +2,7 @@ import { resizeCanvasToDisplaySize } from 'yawgl';
 import { geoSatellite } from 'd3-geo-projection';
 import * as d3 from 'd3-geo';
 import * as topojson from 'topojson-client';
-import { initSpinningBall } from "../../dist/spinning-ball.bundle.js";
+import * as spinningBall from "../../dist/spinning-ball.bundle.js";
 
 const map50mURL = "https://cdn.jsdelivr.net/npm/world-atlas@1/world/50m.json";
 const map110mURL = "https://cdn.jsdelivr.net/npm/world-atlas@1/world/110m.json";
@@ -23,7 +23,7 @@ export function main() {
   // Save default styles
   context.save();
 
-  const ball = initSpinningBall(globeDiv, center, altitude);
+  const ball = spinningBall.init(globeDiv, center, altitude);
 
   const projection = geoSatellite()
     .translate([numPixelsX / 2, numPixelsY / 2])
