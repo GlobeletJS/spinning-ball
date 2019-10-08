@@ -271,7 +271,16 @@ function initTouchy(div) {
  * @module glMatrix
  */
 var ARRAY_TYPE = typeof Float32Array !== 'undefined' ? Float32Array : Array;
-var degree = Math.PI / 180;
+if (!Math.hypot) Math.hypot = function () {
+  var y = 0,
+      i = arguments.length;
+
+  while (i--) {
+    y += arguments[i] * arguments[i];
+  }
+
+  return Math.sqrt(y);
+};
 
 /**
  * 3 Dimensional Vector
@@ -306,7 +315,7 @@ function length(a) {
   var x = a[0];
   var y = a[1];
   var z = a[2];
-  return Math.sqrt(x * x + y * y + z * z);
+  return Math.hypot(x, y, z);
 }
 /**
  * Set the components of a vec3 to the given values

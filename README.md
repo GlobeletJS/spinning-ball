@@ -21,7 +21,7 @@ both purely conceptual. To display what would be seen by the camera, a separate
 renderer is required. See the [d3-world-atlas example] for a demo with a 
 simple D3 renderer.
 
-[d3-world-atlas example]: https://jjhembd.github.io/spinning-ball/examples/d3-world-atlas/index.html
+[d3-world-atlas example]: https://globeletjs.github.io/spinning-ball/examples/d3-world-atlas/index.html
 
 ## Initialization
 spinningBall.init takes three parameters:
