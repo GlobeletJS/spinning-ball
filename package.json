@@ -42,7 +42,7 @@
   "homepage": "https://github.com/GlobeletJS/spinning-ball#readme",
   "dependencies": {
     "gl-matrix": "^3.1.0",
-    "touchy": "github:jjhembd/touchy",
-    "yawgl": "github:jjhembd/yawgl"
+    "touch-sampler": "0.0.1",
+    "yawgl": "0.0.2"
   }
 }

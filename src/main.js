@@ -1,5 +1,5 @@
 import { initView } from 'yawgl';
-import { initTouchy } from 'touchy';
+import { initTouch } from 'touch-sampler';
 import { initEllipsoid } from "./ellipsoid.js";
 import { initCameraDynamics } from "./physics.js";
 import { initCursor3d } from "./cursor3d.js";
@@ -13,7 +13,7 @@ export function init(display, center, altitude) {
   // Input altitude is a floating point value indicating initial altitude
 
   // Add event handlers and position tracking to display element
-  const cursor2d = initTouchy(display);
+  const cursor2d = initTouch(display);
   // Add a view object to compute ray parameters at points on the display
   const view = initView(display, 25.0);
 

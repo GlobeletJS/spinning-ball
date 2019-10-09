@@ -1,5 +1,3 @@
-// Very similar to greggman's module:
-
 function initView(porthole, fieldOfView) {
   // The porthole is an HTML element acting as a window into a 3D world
   // fieldOfView is the vertical view angle range in degrees (floating point)
@@ -176,7 +174,7 @@ function initCursor() {
 
 // Add event listeners to update the state of a cursor object
 // Input div is an HTML element on which events will be registered
-function initTouchy(div) {
+function initTouch(div) {
   const cursor = initCursor();
 
   // Remember the distance between two pointers
@@ -1550,7 +1548,7 @@ function init(display, center, altitude) {
   // Input altitude is a floating point value indicating initial altitude
 
   // Add event handlers and position tracking to display element
-  const cursor2d = initTouchy(display);
+  const cursor2d = initTouch(display);
   // Add a view object to compute ray parameters at points on the display
   const view = initView(display, 25.0);
 
