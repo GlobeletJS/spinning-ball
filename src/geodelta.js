@@ -1,7 +1,7 @@
 import * as vec3 from 'gl-matrix/vec3';
 
 export function initEcefToLocalGeo() {
-  var p, p2, sinLon, cosLon, sinLat, cosLat;
+  var sinLon, cosLon, sinLat, cosLat;
   const toENU = new Float64Array(9);
 
   return ecefToDeltaLonLatAlt;
@@ -41,8 +41,8 @@ export function initEcefToLocalGeo() {
     // Input normal is an ellipsoid surface normal at the desired ENU origin
 
     // Update sines and cosines of the latitude and longitude of the normal
-    p2 = normal[0]**2 + normal[2]**2;
-    p = Math.sqrt(p2);
+    const p2 = normal[0]**2 + normal[2]**2;
+    const p = Math.sqrt(p2);
     if (p > 0) {
       sinLon = normal[0] / p;
       cosLon = normal[2] / p;
@@ -50,7 +50,7 @@ export function initEcefToLocalGeo() {
       sinLon = 0.0;
       cosLon = 0.0;
     }
-    let r = Math.sqrt(p2 + normal[1]**2);
+    const r = Math.sqrt(p2 + normal[1]**2);
     sinLat = normal[1] / r;
     cosLat = p / r;
 

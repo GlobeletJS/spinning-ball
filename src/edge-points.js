@@ -29,10 +29,7 @@ export function initEdgePoints(ellipsoid, camPos, camRot, screen) {
   ];
 
   // An edgePoint is the point on the ellipsoid visible from screenPoint
-  const edgePoints = [];
-  screenPoints.forEach( (point, index) => { 
-    edgePoints[index] = [];
-  });
+  const edgePoints = screenPoints.map(pt => []);
   update();
 
   return {
@@ -62,9 +59,6 @@ export function initEdgePoints(ellipsoid, camPos, camRot, screen) {
     if (!hit) ellipsoid.findHorizon(rayHit, camPos, camRay);
 
     // Convert to longitude/latitude. NOTE: geocentric!!
-    ellipsoid.ecef2geocentric(rayHit, rayHit);
-
-    edgePoints[index][0] = rayHit[0];
-    edgePoints[index][1] = rayHit[1];
+    ellipsoid.ecef2geocentric(edgePoints[index], rayHit);
   }
 }

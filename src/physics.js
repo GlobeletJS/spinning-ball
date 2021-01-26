@@ -21,14 +21,12 @@ export function initCameraDynamics(screen, ellipsoid, initialPosition) {
 
   // Initialize some values and working arrays
   var time = 0.0;
-  var deltaTime = 0.0;
   const rayVec = new Float64Array(4);
 
   // Initialize values & update functions for translations & rotations
   const zoom   = initZoom(ellipsoid);
   const rotate = initRotation(ellipsoid);
   const coast  = initCoast(ellipsoid);
-  var needToRender = true;
 
   // Return methods to read/update state
   return {
@@ -57,11 +55,12 @@ export function initCameraDynamics(screen, ellipsoid, initialPosition) {
   function update(newTime, resized, cursor3d) {
     // Input time is a primitive floating point value
     // Input cursor3d is a pointer to an object
-    deltaTime = newTime - time;
+    const deltaTime = newTime - time;
     time = newTime;
     // If timestep too big, wait till next frame to update physics
     if (deltaTime > 0.25) return resized;
 
+    var needToRender;
     if ( cursor3d.isClicked() ) {       // Rotate globe based on cursor drag
       rotate( position, velocity, cursor3d, deltaTime );
       needToRender = true;
