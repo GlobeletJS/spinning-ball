@@ -8,23 +8,22 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "npm run build-module && npm run build-examples",
     "build-module": "rollup -c build/rollup.config.js",
-    "build-examples": "npm run rollup-examples",
-    "rollup-examples": "cd examples && rollup -c",
+    "build-examples": "cd examples && rollup -c",
     "postversion": "git push && git push --tags"
   },
   "author": "Jeshurun Hembd",
   "license": "MIT",
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "^13.0.0",
     "d3-geo": "^1.11.6",
     "d3-geo-projection": "^2.7.0",
-    "rollup": "^2.38.0",
-    "rollup-plugin-node-resolve": "^5.2.0",
+    "rollup": "^2.52.7",
     "topojson-client": "^3.0.1"
   },
   "name": "spinning-ball",
   "description": "Simulate the position and motion of a camera above the Earth",
-  "main": "dist/spinning-ball.bundle.js",
-  "module": "dist/spinning-ball.bundle.js",
+  "main": "dist/spinning-ball.js",
+  "module": "dist/spinning-ball.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/GlobeletJS/spinning-ball.git"
@@ -40,6 +39,6 @@
   "dependencies": {
     "gl-matrix": "^3.1.0",
     "touch-sampler": "0.0.1",
-    "yawgl": "github:GlobeletJS/yawgl"
+    "yawgl": "^0.3.1"
   }
 }

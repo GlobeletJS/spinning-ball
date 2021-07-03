@@ -18,7 +18,7 @@ to avoid any oscillation.
 
 Note that the camera and the spherical Earth as modeled by spinning-ball are
 both purely conceptual. To display what would be seen by the camera, a separate
-renderer is required. See the [d3-world-atlas example] for a demo with a 
+renderer is required. See the [d3-world-atlas example][] for a demo with a 
 simple D3 renderer.
 
 [d3-world-atlas example]: https://globeletjs.github.io/spinning-ball/examples/d3-world-atlas/index.html
@@ -31,8 +31,6 @@ spinningBall.init takes three parameters:
   the initial horizontal position of the camera
 - altitude: A floating point value indicating the initial altitude of the
   camera in kilometers
-
-[yawgl]: https://github.com/jjhembd/yawgl
 
 ## API
 Initialization returns an object with the following properties and methods:

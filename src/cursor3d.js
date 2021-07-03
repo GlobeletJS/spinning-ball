@@ -1,7 +1,7 @@
 import * as vec4 from 'gl-matrix/vec4';
 
 export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
-  // Input getRayParams is a method from yawgl.screen, converting screen X/Y
+  // Input getRayParams is a method from yawgl.initView, converting screen X/Y
   //  to a ray shooting into 3D space
   // Input initialPosition is a geodetic lon/lat/alt vector
 
