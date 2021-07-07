@@ -1,4 +1,4 @@
-import * as vec4 from 'gl-matrix/vec4';
+import * as vec4 from "gl-matrix/vec4";
 
 export function initEdgePoints(ellipsoid, camPos, camRot, screen) {
   // Allocate working arrays and variables
@@ -11,15 +11,15 @@ export function initEdgePoints(ellipsoid, camPos, camRot, screen) {
   const screenPoints = [
     [-1.0, -1.0], // Bottom left
     [-0.5, -1.0],
-    [ 0.0, -1.0], // Bottom center
-    [ 0.5, -1.0],
-    [ 1.0, -1.0], // Bottom right
-    [ 1.0, -0.5],
-    [ 1.0,  0.0], // Right center
-    [ 1.0,  0.5],
-    [ 1.0,  1.0], // Top right
-    [ 0.5,  1.0],
-    [ 0.0,  1.0], // Top center
+    [0.0, -1.0], // Bottom center
+    [0.5, -1.0],
+    [1.0, -1.0], // Bottom right
+    [1.0, -0.5],
+    [1.0,  0.0], // Right center
+    [1.0,  0.5],
+    [1.0,  1.0], // Top right
+    [0.5,  1.0],
+    [0.0,  1.0], // Top center
     [-0.5,  1.0],
     [-1.0,  1.0], // Top left
     [-1.0,  0.5],
@@ -29,7 +29,7 @@ export function initEdgePoints(ellipsoid, camPos, camRot, screen) {
   ];
 
   // An edgePoint is the point on the ellipsoid visible from screenPoint
-  const edgePoints = screenPoints.map(pt => []);
+  const edgePoints = screenPoints.map(() => []);
   update();
 
   return {

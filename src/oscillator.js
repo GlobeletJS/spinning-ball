@@ -17,7 +17,7 @@ export function fdOscillator(pos, vel, ext, springConst, damping, dt, i1, i2) {
 export function updateOscillator(pos, vel, ext, w0, dt, i1, i2) {
   // Update position and velocity for a critically damped oscillator, following
   // http://mathworld.wolfram.com/CriticallyDampedSimpleHarmonicMotion.html
-  
+
   // Inputs/outputs pos, vel are pointers to arrays
   // Inputs w0, t are primitive floating point values, indicating the
   //   natural frequency of the oscillator and the time step

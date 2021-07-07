@@ -5,10 +5,11 @@
   ],
   "directories": {},
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint src",
     "build": "npm run build-module && npm run build-examples",
     "build-module": "rollup -c build/rollup.config.js",
     "build-examples": "cd examples && rollup -c",
+    "test": "npm run lint",
     "postversion": "git push && git push --tags"
   },
   "author": "Jeshurun Hembd",
@@ -17,6 +18,8 @@
     "@rollup/plugin-node-resolve": "^13.0.0",
     "d3-geo": "^1.11.6",
     "d3-geo-projection": "^2.7.0",
+    "eslint": "^7.30.0",
+    "eslint-config-globeletjs": "^0.0.5",
     "rollup": "^2.52.7",
     "topojson-client": "^3.0.1"
   },
@@ -38,7 +41,7 @@
   "homepage": "https://github.com/GlobeletJS/spinning-ball#readme",
   "dependencies": {
     "gl-matrix": "^3.1.0",
-    "touch-sampler": "0.0.1",
-    "yawgl": "^0.3.1"
+    "touch-sampler": "^0.0.2",
+    "yawgl": "^0.3.2"
   }
 }

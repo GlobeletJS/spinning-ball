@@ -1,4 +1,4 @@
-import * as vec3 from 'gl-matrix/vec3';
+import * as vec3 from "gl-matrix/vec3";
 
 export function initProjector(ellipsoid, camPosition, camInverse, screen) {
   const rayVec = new Float64Array(3);
@@ -21,7 +21,7 @@ export function initProjector(ellipsoid, camPosition, camInverse, screen) {
   function ecefToScreenRay(screenRay, ecefPosition) {
     // For a given point on the ellipsoid (in ECEF coordinates) find the
     // rayVec from a given camera position that will intersect it
-    
+
     // Translate to camera position
     vec3.subtract(rayVec, ecefPosition, camPosition);
     // rayVec now points from camera to ecef. The sign of the

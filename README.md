@@ -1,5 +1,7 @@
 # spinning ball
 
+![tests](https://github.com/GlobeletJS/spinning-ball/actions/workflows/node.js.yml/badge.svg)
+
 Simulate the position and motion of a camera above the Earth
 
 Camera position above a spherical Earth is represented as a 3-vector of

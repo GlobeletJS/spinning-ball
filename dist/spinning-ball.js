@@ -24,8 +24,8 @@ function initView(porthole, fieldOfView) {
   function computeRayParams() {
     // Compute porthole size
     portRect = porthole.getBoundingClientRect();
-    let newWidth = portRect.right - portRect.left;
-    let newHeight = portRect.bottom - portRect.top;
+    const newWidth = portRect.right - portRect.left;
+    const newHeight = portRect.bottom - portRect.top;
 
     // Exit if no change
     if (width === newWidth && height === newHeight) return false;
@@ -49,7 +49,7 @@ function initView(porthole, fieldOfView) {
     // when the mouse is at the left top pixel in the box.
     // rect.right and .bottom are NOT equal to clientX/Y at the bottom
     // right pixel -- they are one more than the clientX/Y values.
-    // Thus the number of pixels in the box is given by 
+    // Thus the number of pixels in the box is given by
     //    porthole.clientWidth = rect.right - rect.left  (NO +1 !!)
     var x = clientX - portRect.left;
     var y = portRect.bottom - clientY - 1; // Flip sign to make +y upward
@@ -58,12 +58,12 @@ function initView(porthole, fieldOfView) {
     // rather than pixel count, to ensure we get -1 and +1 at the ends.
     // (Confirm by considering the 2x2 case)
     var xratio = 2 * x / (width - 1) - 1;
-    var yratio = 2 * y / (height - 1) -1;
+    var yratio = 2 * y / (height - 1) - 1;
 
     rayVec[0] = xratio * maxRay[0];
     rayVec[1] = yratio * maxRay[1];
-    //rayVec[2] = -1.0;
-    //rayVec[3] = 0.0;
+    // rayVec[2] = -1.0;
+    // rayVec[3] = 0.0;
     return;
   }
 }
@@ -96,15 +96,15 @@ function initCursor() {
   const threshold = 6;
 
   return {
-    // Methods to report local state. These protect local values, returning a copy
+    // Methods to report local state. Return a copy to protect local values
     touchStarted: () => touchStarted,
-    zoomStarted:  () => zoomStarted,
-    moved:        () => moved,
-    zoomed:       () => zoomed,
-    tapped:       () => tapped,
-    touchEnded:   () => touchEnded,
-    hasChanged:   () => (moved || zoomed || tapped),
-    zscale:       () => zscale,
+    zoomStarted: () => zoomStarted,
+    moved: () => moved,
+    zoomed: () => zoomed,
+    tapped: () => tapped,
+    touchEnded: () => touchEnded,
+    hasChanged: () => (moved || zoomed || tapped),
+    zscale: () => zscale,
     x: () => cursorX,
     y: () => cursorY,
 
@@ -179,37 +179,38 @@ function initTouch(div) {
 
   // Remember the distance between two pointers
   var lastDistance = 1.0;
-  
+
   // Capture the drag event so we can disable any default actions
-  div.addEventListener('dragstart', function(drag) {
+  div.addEventListener("dragstart", function(drag) {
     drag.preventDefault();
     return false;
   }, false);
 
   // Add mouse events
-  div.addEventListener('mousedown',   cursor.startTouch, false);
-  div.addEventListener('mousemove',   cursor.move,       false);
-  div.addEventListener('mouseup',     cursor.endTouch,   false);
-  div.addEventListener('mouseleave',  cursor.endTouch,   false);
-  div.addEventListener('wheel',       wheelZoom,         false);
+  div.addEventListener("mousedown",   cursor.startTouch, false);
+  div.addEventListener("mousemove",   cursor.move,       false);
+  div.addEventListener("mouseup",     cursor.endTouch,   false);
+  div.addEventListener("mouseleave",  cursor.endTouch,   false);
+  div.addEventListener("wheel",       wheelZoom,         false);
 
   // Add touch events
-  div.addEventListener('touchstart',  initTouch,       false);
-  div.addEventListener('touchmove',   moveTouch,       false);
-  div.addEventListener('touchend',    cursor.endTouch, false);
-  div.addEventListener('touchcancel', cursor.endTouch, false);
+  div.addEventListener("touchstart",  initTouch,       false);
+  div.addEventListener("touchmove",   moveTouch,       false);
+  div.addEventListener("touchend",    cursor.endTouch, false);
+  div.addEventListener("touchcancel", cursor.endTouch, false);
 
   // Return a pointer to the cursor object
   return cursor;
 
   function initTouch(evnt) {
-    evnt.preventDefault();
-    switch (evnt.touches.length) {
-      case 1: 
-        cursor.startTouch(evnt.touches[0]);
+    const { preventDefault, touches } = evnt;
+    preventDefault();
+    switch (touches.length) {
+      case 1:
+        cursor.startTouch(touches[0]);
         break;
       case 2:
-        var midpoint = getMidPoint(evnt.touches[0], evnt.touches[1]);
+        var midpoint = getMidPoint(touches[0], touches[1]);
         cursor.startTouch(midpoint);
         cursor.startZoom(midpoint);
         // Initialize the starting distance between touches
@@ -221,15 +222,16 @@ function initTouch(div) {
   }
 
   function moveTouch(evnt) {
-    evnt.preventDefault();
+    const { preventDefault, touches } = evnt;
+    preventDefault();
     // NOTE: MDN says to add the touchmove handler within the touchstart handler
     // https://developer.mozilla.org/en-US/docs/Web/API/Touch_events/Using_Touch_Events
-    switch (evnt.touches.length) {
+    switch (touches.length) {
       case 1:
-        cursor.move(evnt.touches[0]);
+        cursor.move(touches[0]);
         break;
       case 2:
-        var midpoint = getMidPoint(evnt.touches[0], evnt.touches[1]);
+        var midpoint = getMidPoint(touches[0], touches[1]);
         // Move the cursor to the midpoint
         cursor.move(midpoint);
         // Zoom based on the change in distance between the two touches
@@ -250,7 +252,7 @@ function initTouch(div) {
       clientX: p0.clientX + dx / 2,
       clientY: p0.clientY + dy / 2,
       distance: Math.sqrt(dx * dx + dy * dy),
-    }
+    };
   }
 
   function wheelZoom(turn) {
@@ -305,7 +307,7 @@ function create$2() {
 /**
  * Calculates the length of a vec3
  *
- * @param {vec3} a vector to calculate length of
+ * @param {ReadonlyVec3} a vector to calculate length of
  * @returns {Number} length of a
  */
 
@@ -335,8 +337,8 @@ function set(out, x, y, z) {
  * Adds two vec3's
  *
  * @param {vec3} out the receiving vector
- * @param {vec3} a the first operand
- * @param {vec3} b the second operand
+ * @param {ReadonlyVec3} a the first operand
+ * @param {ReadonlyVec3} b the second operand
  * @returns {vec3} out
  */
 
@@ -350,8 +352,8 @@ function add(out, a, b) {
  * Subtracts vector b from vector a
  *
  * @param {vec3} out the receiving vector
- * @param {vec3} a the first operand
- * @param {vec3} b the second operand
+ * @param {ReadonlyVec3} a the first operand
+ * @param {ReadonlyVec3} b the second operand
  * @returns {vec3} out
  */
 
@@ -365,7 +367,7 @@ function subtract(out, a, b) {
  * Scales a vec3 by a scalar number
  *
  * @param {vec3} out the receiving vector
- * @param {vec3} a the vector to scale
+ * @param {ReadonlyVec3} a the vector to scale
  * @param {Number} b amount to scale the vector by
  * @returns {vec3} out
  */
@@ -380,8 +382,8 @@ function scale(out, a, b) {
  * Adds two vec3's after scaling the second operand by a scalar value
  *
  * @param {vec3} out the receiving vector
- * @param {vec3} a the first operand
- * @param {vec3} b the second operand
+ * @param {ReadonlyVec3} a the first operand
+ * @param {ReadonlyVec3} b the second operand
  * @param {Number} scale the amount to scale b by before adding
  * @returns {vec3} out
  */
@@ -396,7 +398,7 @@ function scaleAndAdd(out, a, b, scale) {
  * Normalize a vec3
  *
  * @param {vec3} out the receiving vector
- * @param {vec3} a vector to normalize
+ * @param {ReadonlyVec3} a vector to normalize
  * @returns {vec3} out
  */
 
@@ -419,8 +421,8 @@ function normalize(out, a) {
 /**
  * Calculates the dot product of two vec3's
  *
- * @param {vec3} a the first operand
- * @param {vec3} b the second operand
+ * @param {ReadonlyVec3} a the first operand
+ * @param {ReadonlyVec3} b the second operand
  * @returns {Number} dot product of a and b
  */
 
@@ -432,8 +434,8 @@ function dot(a, b) {
  * 4th vector component is implicitly '1'
  *
  * @param {vec3} out the receiving vector
- * @param {vec3} a the vector to transform
- * @param {mat4} m matrix to transform with
+ * @param {ReadonlyVec3} a the vector to transform
+ * @param {ReadonlyMat4} m matrix to transform with
  * @returns {vec3} out
  */
 
@@ -452,8 +454,8 @@ function transformMat4$1(out, a, m) {
  * Transforms the vec3 with a mat3.
  *
  * @param {vec3} out the receiving vector
- * @param {vec3} a the vector to transform
- * @param {mat3} m the 3x3 matrix to transform with
+ * @param {ReadonlyVec3} a the vector to transform
+ * @param {ReadonlyMat3} m the 3x3 matrix to transform with
  * @returns {vec3} out
  */
 
@@ -513,6 +515,7 @@ function transformMat3(out, a, m) {
 })();
 
 function initEcefToLocalGeo() {
+  const { cos, sin, sqrt } = Math;
   var sinLon, cosLon, sinLat, cosLat;
   const toENU = new Float64Array(9);
 
@@ -530,18 +533,15 @@ function initEcefToLocalGeo() {
     transformMat3( diff, diff, toENU );
 
     // 2. Convert horizontal component to changes in longitude, latitude
-    let r = length(anchor);
+    const r = length(anchor);
     delta[0] = diff[0] / r / (cosLat + 0.0001); // +0.0001 avoids /0
     delta[1] = diff[1] / r;
     delta[2] = diff[2];
-    
+
     // 3. Latitudinal change is a rotation about an axis in the x-z plane, with
     // direction vec3.cross(anchor,North), or -East. We only want the component
     // rotating about the x-axis in view coordinates.
-    delta[1] *= (
-        Math.cos(viewPos[0]) * cosLon +
-        Math.sin(viewPos[0]) * sinLon 
-        );
+    delta[1] *= (cos(viewPos[0]) * cosLon + sin(viewPos[0]) * sinLon);
     return;
   }
 
@@ -553,8 +553,8 @@ function initEcefToLocalGeo() {
     // Input normal is an ellipsoid surface normal at the desired ENU origin
 
     // Update sines and cosines of the latitude and longitude of the normal
-    const p2 = normal[0]**2 + normal[2]**2;
-    const p = Math.sqrt(p2);
+    const p2 = normal[0] ** 2 + normal[2] ** 2;
+    const p = sqrt(p2);
     if (p > 0) {
       sinLon = normal[0] / p;
       cosLon = normal[2] / p;
@@ -562,7 +562,7 @@ function initEcefToLocalGeo() {
       sinLon = 0.0;
       cosLon = 0.0;
     }
-    const r = Math.sqrt(p2 + normal[1]**2);
+    const r = sqrt(p2 + normal[1] ** 2);
     sinLat = normal[1] / r;
     cosLat = p / r;
 
@@ -589,10 +589,11 @@ function initEcefToLocalGeo() {
 }
 
 function initEllipsoid() {
+  const { atan2, sin, cos, sqrt } = Math;
   // Store ellipsoid parameters
   const semiMajor = 6371.0;  // kilometers
   const semiMinor = 6371.0;  // kilometers
-  const e2 = 1.0 - semiMinor**2 / semiMajor**2; // Ellipticity squared
+  const e2 = 1.0 - semiMinor ** 2 / semiMajor ** 2; // Ellipticity squared
   // https://en.wikipedia.org/wiki/Earth_radius#Mean_radius
   const meanRadius = (2.0 * semiMajor + semiMinor) / 3.0;
 
@@ -610,7 +611,7 @@ function initEllipsoid() {
     findHorizon,
   };
 
-  function ecef2geocentric( gcPos, ecefPos ) {
+  function ecef2geocentric(gcPos, ecefPos) {
     // Output gcPos is a pointer to a 3-element array, containing geocentric
     //  longitude & latitude (radians) and altitude (meters) coordinates
     // Input ecefPos is a pointer to a 3-element array, containing earth-
@@ -618,17 +619,19 @@ function initEllipsoid() {
 
     // Note: order of calculations is chosen to allow calls with same array
     // as input & output (gcPos, ecefPos point to same array)
-    const p2 = ecefPos[0]**2 + ecefPos[2]**2; // Squared distance from polar axis
 
-    gcPos[0] = Math.atan2( ecefPos[0], ecefPos[2] );     // Longitude
-    gcPos[1] = Math.atan2( ecefPos[1], Math.sqrt(p2) );  // Latitude
+    // Compute squared distance from polar axis
+    const p2 = ecefPos[0] ** 2 + ecefPos[2] ** 2;
+
+    gcPos[0] = atan2(ecefPos[0], ecefPos[2]);     // Longitude
+    gcPos[1] = atan2(ecefPos[1], sqrt(p2));  // Latitude
 
     // NOTE: this "altitude" is distance from SPHERE, not ellipsoid
-    gcPos[2] = Math.sqrt( p2 + ecefPos[1]**2 ) - meanRadius; // Altitude
+    gcPos[2] = sqrt(p2 + ecefPos[1] ** 2) - meanRadius; // Altitude
     return;
   }
 
-  function geodetic2ecef( ecef, geodetic ) {
+  function geodetic2ecef(ecef, geodetic) {
     // Output ecef is a pointer to a 3-element array containing X,Y,Z values
     //   of the point in earth-centered earth-fixed (ECEF) coordinates
     // Input geodetic is a pointer to a 3-element array, containing
@@ -636,15 +639,15 @@ function initEllipsoid() {
 
     // Start from prime vertical radius of curvature -- see
     // https://en.wikipedia.org/wiki/Geographic_coordinate_conversion
-    const sinLat = Math.sin( geodetic[1] );
-    const primeVertRad = semiMajor / Math.sqrt( 1.0 - e2 * sinLat**2 );
+    const sinLat = sin( geodetic[1] );
+    const primeVertRad = semiMajor / sqrt( 1.0 - e2 * sinLat ** 2 );
     // Radial distance from y-axis:
-    const p = (primeVertRad + geodetic[2]) * Math.cos(geodetic[1]);
+    const p = (primeVertRad + geodetic[2]) * cos(geodetic[1]);
 
     // Compute ECEF position
-    ecef[0] = p * Math.sin(geodetic[0]);
+    ecef[0] = p * sin(geodetic[0]);
     ecef[1] = (primeVertRad + geodetic[2]) * sinLat * (1.0 - e2);
-    ecef[2] = p * Math.cos(geodetic[0]);
+    ecef[2] = p * cos(geodetic[0]);
     return;
   }
 
@@ -661,28 +664,28 @@ function initEllipsoid() {
     //  i.e., for P = (x,y,z), MP = (x/a, y/b, z/c). Since M is diagonal
     //  (ellipsoid aligned along coordinate axes) we just scale each coordinate.
     mCam.set([
-        camera[0] / semiMajor, 
-        camera[1] / semiMinor,
-        camera[2] / semiMajor 
+      camera[0] / semiMajor,
+      camera[1] / semiMinor,
+      camera[2] / semiMajor
     ]);
     mRay.set([
-        rayVec[0] / semiMajor, 
-        rayVec[1] / semiMinor, 
-        rayVec[2] / semiMajor 
+      rayVec[0] / semiMajor,
+      rayVec[1] / semiMinor,
+      rayVec[2] / semiMajor
     ]);
 
     // We now have <mRay,mRay>*t^2 + 2*<mRay,mCam>*t + <mCam,mCam> - 1 = 0
     const a = dot(mRay, mRay);
     const b = 2.0 * dot(mRay, mCam);
     const c = dot(mCam, mCam) - 1.0;
-    const discriminant = b**2 - 4*a*c;
+    const discriminant = b ** 2 - 4 * a * c;
 
     const intersected = (discriminant >= 0);
     var t;
     if (intersected) {
       // We want the closest intersection, with smallest positive t
       // We assume b < 0, if ray is pointing back from camera to ellipsoid
-      t = (-b - Math.sqrt(discriminant)) / (2.0 * a);
+      t = (-b - sqrt(discriminant)) / (2.0 * a);
     } else {
       // Find the point that comes closest to the unit sphere
       //   NOTE: this is NOT the closest point to the ellipsoid!
@@ -713,7 +716,7 @@ function initEllipsoid() {
 
     // 3. Find the error of the length of the perpendicular component
     const sinAlpha = meanRadius / length(camera); // sin(angle to horizon)
-    const tanAlpha = sinAlpha / Math.sqrt(1.0 - sinAlpha * sinAlpha);
+    const tanAlpha = sinAlpha / sqrt(1.0 - sinAlpha * sinAlpha);
     const dPerp = -paraLength * tanAlpha - perpLength;
 
     // 4. Find the corrected rayVec
@@ -765,7 +768,7 @@ function create$1() {
  * Transpose the values of a mat4
  *
  * @param {mat4} out the receiving matrix
- * @param {mat4} a the source matrix
+ * @param {ReadonlyMat4} a the source matrix
  * @returns {mat4} out
  */
 
@@ -815,7 +818,7 @@ function transpose(out, a) {
  * Rotates a matrix by the given angle around the X axis
  *
  * @param {mat4} out the receiving matrix
- * @param {mat4} a the matrix to rotate
+ * @param {ReadonlyMat4} a the matrix to rotate
  * @param {Number} rad the angle to rotate the matrix by
  * @returns {mat4} out
  */
@@ -918,7 +921,7 @@ function initECEF(ellipsoid, initialPos) {
     if (geodetic[0] >  Math.PI) geodetic[0] -= 2.0 * Math.PI;
     if (geodetic[0] < -Math.PI) geodetic[0] += 2.0 * Math.PI;
 
-    // Compute ECEF coordinates. NOTE WebGL coordinate convention: 
+    // Compute ECEF coordinates. NOTE WebGL coordinate convention:
     // +x to right, +y to top of screen, and +z into the screen
     ellipsoid.geodetic2ecef( position, geodetic );
 
@@ -962,8 +965,8 @@ function create() {
  * Transforms the vec4 with a mat4.
  *
  * @param {vec4} out the receiving vector
- * @param {vec4} a the vector to transform
- * @param {mat4} m matrix to transform with
+ * @param {ReadonlyVec4} a the vector to transform
+ * @param {ReadonlyMat4} m matrix to transform with
  * @returns {vec4} out
  */
 
@@ -1037,15 +1040,15 @@ function initEdgePoints(ellipsoid, camPos, camRot, screen) {
   const screenPoints = [
     [-1.0, -1.0], // Bottom left
     [-0.5, -1.0],
-    [ 0.0, -1.0], // Bottom center
-    [ 0.5, -1.0],
-    [ 1.0, -1.0], // Bottom right
-    [ 1.0, -0.5],
-    [ 1.0,  0.0], // Right center
-    [ 1.0,  0.5],
-    [ 1.0,  1.0], // Top right
-    [ 0.5,  1.0],
-    [ 0.0,  1.0], // Top center
+    [0.0, -1.0], // Bottom center
+    [0.5, -1.0],
+    [1.0, -1.0], // Bottom right
+    [1.0, -0.5],
+    [1.0,  0.0], // Right center
+    [1.0,  0.5],
+    [1.0,  1.0], // Top right
+    [0.5,  1.0],
+    [0.0,  1.0], // Top center
     [-0.5,  1.0],
     [-1.0,  1.0], // Top left
     [-1.0,  0.5],
@@ -1055,7 +1058,7 @@ function initEdgePoints(ellipsoid, camPos, camRot, screen) {
   ];
 
   // An edgePoint is the point on the ellipsoid visible from screenPoint
-  const edgePoints = screenPoints.map(pt => []);
+  const edgePoints = screenPoints.map(() => []);
   update();
 
   return {
@@ -1092,7 +1095,7 @@ function initEdgePoints(ellipsoid, camPos, camRot, screen) {
 function updateOscillator(pos, vel, ext, w0, dt, i1, i2) {
   // Update position and velocity for a critically damped oscillator, following
   // http://mathworld.wolfram.com/CriticallyDampedSimpleHarmonicMotion.html
-  
+
   // Inputs/outputs pos, vel are pointers to arrays
   // Inputs w0, t are primitive floating point values, indicating the
   //   natural frequency of the oscillator and the time step
@@ -1112,8 +1115,6 @@ function updateOscillator(pos, vel, ext, w0, dt, i1, i2) {
 //  or two-finger pinch movements
 function initZoom( ellipsoid ) {
   const w0 = 14.14; // Natural frequency of oscillator
-  ellipsoid.meanRadius() * 0.00001;
-  ellipsoid.meanRadius() * 8.0;
   const minVelocity = 0.001;
   const maxRotation = 0.15;
 
@@ -1138,11 +1139,11 @@ function initZoom( ellipsoid ) {
     if (track) {
       // Adjust rotation to keep zoom location fixed on screen
       dPos.set(position);
-      dragonflyStalk( dPos, cursor3d.zoomRay, cursor3d.zoomPosition, ellipsoid );
+      dragonflyStalk(dPos, cursor3d.zoomRay, cursor3d.zoomPosition, ellipsoid);
       // Restrict size of rotation in one time step
-      subtract( dPos, dPos, position );
-      var limited = limitRotation( dPos, maxRotation );
-      add( position, position, dPos );
+      subtract(dPos, dPos, position);
+      var limited = limitRotation(dPos, maxRotation);
+      add(position, position, dPos);
     }
 
     // Scale rotational velocity by the ratio of the height change
@@ -1162,10 +1163,10 @@ function initZoom( ellipsoid ) {
       cursor3d.stopZoom();
     }
     return;
-  }
+  };
 }
 
-function limitRotation( dPos, maxRotation ) {
+function limitRotation(dPos, maxRotation) {
   // Input dPos is a pointer to a 2-element array containing lon, lat changes
   // maxRotation is a primitive floating point value
 
@@ -1199,16 +1200,16 @@ function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
   var onEllipse = ellipsoid.shoot(target, unrotatedCamPos, ray);
   if (!onEllipse) return; // No intersection!
 
-  // Find the rotation about the y-axis required to bring scene point into 
+  // Find the rotation about the y-axis required to bring scene point into
   // the  x = target[0]  plane
   // First find distance of scene point from scene y-axis
   var sceneR = Math.sqrt( scenePos[0] ** 2 + scenePos[2] ** 2 );
   // If too short, exit rather than tipping poles out of y-z plane
   if ( sceneR < Math.abs(target[0]) ) return;
   var targetRotY = Math.asin( target[0] / sceneR );
-  outRotation[0] = 
+  outRotation[0] =
     Math.atan2( scenePos[0], scenePos[2] ) - // Y-angle of scene vector
-    //Math.asin( target[0] / sceneR );       // Y-angle of target point
+    // Math.asin( target[0] / sceneR );       // Y-angle of target point
     targetRotY;
 
   // We now know the x and y coordinates of the scene vector after rotation
@@ -1219,7 +1220,7 @@ function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
   // Find the rotation about the screen x-axis required to bring the scene
   // point into the target y = target[1] plane
   // Assumes 0 angle is aligned along Z, and angle > 0 is rotation toward -y !
-  outRotation[1] = 
+  outRotation[1] =
     Math.atan2( -1 * target[1], target[2] ) -  // X-angle of target point
     Math.atan2( -1 * scenePos[1], zRotated );  // X-angle of scene vector
 
@@ -1232,24 +1233,24 @@ function initRotation( ellipsoid ) {
   const w0 = 40.0;
   const extension = new Float64Array(3);
 
-  return function( position, velocity, mouse3d, deltaTime ) {
+  return function(position, velocity, mouse3d, deltaTime) {
     // Input mouse3d is a pointer to a mouse object
     // Inputs position, velocity are pointers to vec3s
     // Input deltaTime is a primitive floating point value
 
     // Find the displacement of the clicked position on the globe
     // from the current mouse position
-    subtract( extension, mouse3d.position, mouse3d.clickPosition );
+    subtract(extension, mouse3d.position, mouse3d.clickPosition);
 
     // Convert to changes in longitude, latitude, and altitude
-    ellipsoid.ecefToDeltaLonLatAlt( extension, extension, 
-        mouse3d.clickPosition, position );
+    ellipsoid.ecefToDeltaLonLatAlt(extension, extension,
+      mouse3d.clickPosition, position);
     // Ignore altitude change for now
     extension[2] = 0.0;
 
     updateOscillator(position, velocity, extension, w0, deltaTime, 0, 1);
     return;
-  }
+  };
 }
 
 // initCoast: Update rotations based on a freely spinning globe (no forces)
@@ -1273,12 +1274,12 @@ function initCoast( ellipsoid ) {
 
     // Adjust previous velocities for damping over the past time interval
     dvDamp = -1.0 * damping * deltaTime;
-    //vec3.scaleAndAdd(velocity, velocity, velocity, dvDamp);
+    // vec3.scaleAndAdd(velocity, velocity, velocity, dvDamp);
     velocity[0] += velocity[0] * dvDamp;
     velocity[1] += velocity[1] * dvDamp;
 
     // Update rotations
-    //vec3.scaleAndAdd(position, position, velocity, deltaTime);
+    // vec3.scaleAndAdd(position, position, velocity, deltaTime);
     position[0] += velocity[0] * deltaTime;
     position[1] += velocity[1] * deltaTime;
     return true;    // Position changed, need to re-render
@@ -1306,7 +1307,7 @@ function initProjector(ellipsoid, camPosition, camInverse, screen) {
   function ecefToScreenRay(screenRay, ecefPosition) {
     // For a given point on the ellipsoid (in ECEF coordinates) find the
     // rayVec from a given camera position that will intersect it
-    
+
     // Translate to camera position
     subtract(rayVec, ecefPosition, camPosition);
     // rayVec now points from camera to ecef. The sign of the
@@ -1338,7 +1339,8 @@ function initCameraDynamics(screen, ellipsoid, initialPosition) {
   // Keep track of the longitude/latitude of the edges of the screen
   const edges = initEdgePoints(ellipsoid, ecef.position, ecef.rotation, screen);
   // Initialize transforms from ellipsoid to screen positions
-  const projector = initProjector(ellipsoid, ecef.position, ecef.inverse, screen);
+  const projector = initProjector(ellipsoid,
+    ecef.position, ecef.inverse, screen);
 
   // Initialize some values and working arrays
   var time = 0.0;
@@ -1369,8 +1371,8 @@ function initCameraDynamics(screen, ellipsoid, initialPosition) {
     velocity[0] = 0.0;
     velocity[1] = 0.0;
   }
-  function stopZoom() { 
-    velocity[2] = 0.0; 
+  function stopZoom() {
+    velocity[2] = 0.0;
   }
 
   function update(newTime, resized, cursor3d) {
@@ -1446,7 +1448,7 @@ function initCursor3d(getRayParams, ellipsoid, initialPosition) {
 
   // Return methods to read/update cursorPosition
   return {
-    // POINTERs to local arrays. WARNING: local values can be changed from outside!
+    // POINTERs to local arrays. WARNING: local vals can be changed outside!
     position: cursorPosition, // TODO: why make the name more ambiguous?
     cursorLonLat,
     clickPosition,
@@ -1455,11 +1457,11 @@ function initCursor3d(getRayParams, ellipsoid, initialPosition) {
 
     // Methods to report local state.
     // These protect the local value, since primitives are passed by value
-    isOnScene:  () => onScene,
-    isClicked:  () => clicked,
-    wasTapped:  () => wasTapped,
-    isZooming:  () => zooming,
-    zoomFixed:  () => zoomFix,
+    isOnScene: () => onScene,
+    isClicked: () => clicked,
+    wasTapped: () => wasTapped,
+    isZooming: () => zooming,
+    zoomFixed: () => zoomFix,
     zoomTarget: () => targetHeight,
 
     // Functions to update local state
@@ -1560,11 +1562,11 @@ function init(display, center, altitude) {
   return {
     view,
 
-    radius:    ellipsoid.meanRadius,
+    radius: ellipsoid.meanRadius,
 
     camMoving: () => camMoving,
     cameraPos: camera.position,
-    edgesPos:  camera.edgesPos,
+    edgesPos: camera.edgesPos,
 
     lonLatToScreenXY: camera.lonLatToScreenXY,
 
@@ -1577,11 +1579,11 @@ function init(display, center, altitude) {
   };
 
   function update(time) {
-    // Input time is a primitive floating point value representing the 
+    // Input time is a primitive floating point value representing the
     // time this function was called, in seconds
 
     // Check for changes in display size
-    let resized = view.changed();
+    const resized = view.changed();
 
     // Update camera dynamics
     camMoving = camera.update(time, resized, cursor3d);

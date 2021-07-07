@@ -1,11 +1,12 @@
-import * as vec3 from 'gl-matrix/vec3';
+import * as vec3 from "gl-matrix/vec3";
 import { initEcefToLocalGeo } from "./geodelta";
 
 export function initEllipsoid() {
+  const { atan2, sin, cos, sqrt } = Math;
   // Store ellipsoid parameters
   const semiMajor = 6371.0;  // kilometers
   const semiMinor = 6371.0;  // kilometers
-  const e2 = 1.0 - semiMinor**2 / semiMajor**2; // Ellipticity squared
+  const e2 = 1.0 - semiMinor ** 2 / semiMajor ** 2; // Ellipticity squared
   // https://en.wikipedia.org/wiki/Earth_radius#Mean_radius
   const meanRadius = (2.0 * semiMajor + semiMinor) / 3.0;
 
@@ -23,7 +24,7 @@ export function initEllipsoid() {
     findHorizon,
   };
 
-  function ecef2geocentric( gcPos, ecefPos ) {
+  function ecef2geocentric(gcPos, ecefPos) {
     // Output gcPos is a pointer to a 3-element array, containing geocentric
     //  longitude & latitude (radians) and altitude (meters) coordinates
     // Input ecefPos is a pointer to a 3-element array, containing earth-
@@ -31,17 +32,19 @@ export function initEllipsoid() {
 
     // Note: order of calculations is chosen to allow calls with same array
     // as input & output (gcPos, ecefPos point to same array)
-    const p2 = ecefPos[0]**2 + ecefPos[2]**2; // Squared distance from polar axis
 
-    gcPos[0] = Math.atan2( ecefPos[0], ecefPos[2] );     // Longitude
-    gcPos[1] = Math.atan2( ecefPos[1], Math.sqrt(p2) );  // Latitude
+    // Compute squared distance from polar axis
+    const p2 = ecefPos[0] ** 2 + ecefPos[2] ** 2;
+
+    gcPos[0] = atan2(ecefPos[0], ecefPos[2]);     // Longitude
+    gcPos[1] = atan2(ecefPos[1], sqrt(p2));  // Latitude
 
     // NOTE: this "altitude" is distance from SPHERE, not ellipsoid
-    gcPos[2] = Math.sqrt( p2 + ecefPos[1]**2 ) - meanRadius; // Altitude
+    gcPos[2] = sqrt(p2 + ecefPos[1] ** 2) - meanRadius; // Altitude
     return;
   }
 
-  function geodetic2ecef( ecef, geodetic ) {
+  function geodetic2ecef(ecef, geodetic) {
     // Output ecef is a pointer to a 3-element array containing X,Y,Z values
     //   of the point in earth-centered earth-fixed (ECEF) coordinates
     // Input geodetic is a pointer to a 3-element array, containing
@@ -49,15 +52,15 @@ export function initEllipsoid() {
 
     // Start from prime vertical radius of curvature -- see
     // https://en.wikipedia.org/wiki/Geographic_coordinate_conversion
-    const sinLat = Math.sin( geodetic[1] );
-    const primeVertRad = semiMajor / Math.sqrt( 1.0 - e2 * sinLat**2 );
+    const sinLat = sin( geodetic[1] );
+    const primeVertRad = semiMajor / sqrt( 1.0 - e2 * sinLat ** 2 );
     // Radial distance from y-axis:
-    const p = (primeVertRad + geodetic[2]) * Math.cos(geodetic[1]);
+    const p = (primeVertRad + geodetic[2]) * cos(geodetic[1]);
 
     // Compute ECEF position
-    ecef[0] = p * Math.sin(geodetic[0]);
+    ecef[0] = p * sin(geodetic[0]);
     ecef[1] = (primeVertRad + geodetic[2]) * sinLat * (1.0 - e2);
-    ecef[2] = p * Math.cos(geodetic[0]);
+    ecef[2] = p * cos(geodetic[0]);
     return;
   }
 
@@ -74,28 +77,28 @@ export function initEllipsoid() {
     //  i.e., for P = (x,y,z), MP = (x/a, y/b, z/c). Since M is diagonal
     //  (ellipsoid aligned along coordinate axes) we just scale each coordinate.
     mCam.set([
-        camera[0] / semiMajor, 
-        camera[1] / semiMinor,
-        camera[2] / semiMajor 
+      camera[0] / semiMajor,
+      camera[1] / semiMinor,
+      camera[2] / semiMajor
     ]);
     mRay.set([
-        rayVec[0] / semiMajor, 
-        rayVec[1] / semiMinor, 
-        rayVec[2] / semiMajor 
+      rayVec[0] / semiMajor,
+      rayVec[1] / semiMinor,
+      rayVec[2] / semiMajor
     ]);
 
     // We now have <mRay,mRay>*t^2 + 2*<mRay,mCam>*t + <mCam,mCam> - 1 = 0
     const a = vec3.dot(mRay, mRay);
     const b = 2.0 * vec3.dot(mRay, mCam);
     const c = vec3.dot(mCam, mCam) - 1.0;
-    const discriminant = b**2 - 4*a*c;
+    const discriminant = b ** 2 - 4 * a * c;
 
     const intersected = (discriminant >= 0);
     var t;
     if (intersected) {
       // We want the closest intersection, with smallest positive t
       // We assume b < 0, if ray is pointing back from camera to ellipsoid
-      t = (-b - Math.sqrt(discriminant)) / (2.0 * a);
+      t = (-b - sqrt(discriminant)) / (2.0 * a);
     } else {
       // Find the point that comes closest to the unit sphere
       //   NOTE: this is NOT the closest point to the ellipsoid!
@@ -126,7 +129,7 @@ export function initEllipsoid() {
 
     // 3. Find the error of the length of the perpendicular component
     const sinAlpha = meanRadius / vec3.length(camera); // sin(angle to horizon)
-    const tanAlpha = sinAlpha / Math.sqrt(1.0 - sinAlpha * sinAlpha);
+    const tanAlpha = sinAlpha / sqrt(1.0 - sinAlpha * sinAlpha);
     const dPerp = -paraLength * tanAlpha - perpLength;
 
     // 4. Find the corrected rayVec

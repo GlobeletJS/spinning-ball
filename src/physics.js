@@ -17,7 +17,8 @@ export function initCameraDynamics(screen, ellipsoid, initialPosition) {
   // Keep track of the longitude/latitude of the edges of the screen
   const edges = initEdgePoints(ellipsoid, ecef.position, ecef.rotation, screen);
   // Initialize transforms from ellipsoid to screen positions
-  const projector = initProjector(ellipsoid, ecef.position, ecef.inverse, screen);
+  const projector = initProjector(ellipsoid,
+    ecef.position, ecef.inverse, screen);
 
   // Initialize some values and working arrays
   var time = 0.0;
@@ -48,8 +49,8 @@ export function initCameraDynamics(screen, ellipsoid, initialPosition) {
     velocity[0] = 0.0;
     velocity[1] = 0.0;
   }
-  function stopZoom() { 
-    velocity[2] = 0.0; 
+  function stopZoom() {
+    velocity[2] = 0.0;
   }
 
   function update(newTime, resized, cursor3d) {

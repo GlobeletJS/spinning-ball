@@ -1,6 +1,7 @@
-import * as vec3 from 'gl-matrix/vec3';
+import * as vec3 from "gl-matrix/vec3";
 
 export function initEcefToLocalGeo() {
+  const { cos, sin, sqrt } = Math;
   var sinLon, cosLon, sinLat, cosLat;
   const toENU = new Float64Array(9);
 
@@ -18,18 +19,15 @@ export function initEcefToLocalGeo() {
     vec3.transformMat3( diff, diff, toENU );
 
     // 2. Convert horizontal component to changes in longitude, latitude
-    let r = vec3.length(anchor);
+    const r = vec3.length(anchor);
     delta[0] = diff[0] / r / (cosLat + 0.0001); // +0.0001 avoids /0
     delta[1] = diff[1] / r;
     delta[2] = diff[2];
-    
+
     // 3. Latitudinal change is a rotation about an axis in the x-z plane, with
     // direction vec3.cross(anchor,North), or -East. We only want the component
     // rotating about the x-axis in view coordinates.
-    delta[1] *= (
-        Math.cos(viewPos[0]) * cosLon +
-        Math.sin(viewPos[0]) * sinLon 
-        );
+    delta[1] *= (cos(viewPos[0]) * cosLon + sin(viewPos[0]) * sinLon);
     return;
   }
 
@@ -41,8 +39,8 @@ export function initEcefToLocalGeo() {
     // Input normal is an ellipsoid surface normal at the desired ENU origin
 
     // Update sines and cosines of the latitude and longitude of the normal
-    const p2 = normal[0]**2 + normal[2]**2;
-    const p = Math.sqrt(p2);
+    const p2 = normal[0] ** 2 + normal[2] ** 2;
+    const p = sqrt(p2);
     if (p > 0) {
       sinLon = normal[0] / p;
       cosLon = normal[2] / p;
@@ -50,7 +48,7 @@ export function initEcefToLocalGeo() {
       sinLon = 0.0;
       cosLon = 0.0;
     }
-    const r = Math.sqrt(p2 + normal[1]**2);
+    const r = sqrt(p2 + normal[1] ** 2);
     sinLat = normal[1] / r;
     cosLat = p / r;
 

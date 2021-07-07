@@ -1,4 +1,4 @@
-import * as mat4 from 'gl-matrix/mat4';
+import * as mat4 from "gl-matrix/mat4";
 
 export function initECEF(ellipsoid, initialPos) {
   // From the geodetic position, we derive Earth-Centered Earth-Fixed (ECEF)
@@ -28,7 +28,7 @@ export function initECEF(ellipsoid, initialPos) {
     if (geodetic[0] >  Math.PI) geodetic[0] -= 2.0 * Math.PI;
     if (geodetic[0] < -Math.PI) geodetic[0] += 2.0 * Math.PI;
 
-    // Compute ECEF coordinates. NOTE WebGL coordinate convention: 
+    // Compute ECEF coordinates. NOTE WebGL coordinate convention:
     // +x to right, +y to top of screen, and +z into the screen
     ellipsoid.geodetic2ecef( position, geodetic );
 

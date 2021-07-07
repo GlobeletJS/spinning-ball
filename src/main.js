@@ -1,5 +1,5 @@
-import { initView } from 'yawgl';
-import { initTouch } from 'touch-sampler';
+import { initView } from "yawgl";
+import { initTouch } from "touch-sampler";
 import { initEllipsoid } from "./ellipsoid.js";
 import { initCameraDynamics } from "./physics.js";
 import { initCursor3d } from "./cursor3d.js";
@@ -38,11 +38,11 @@ export function init(display, center, altitude) {
   return {
     view,
 
-    radius:    ellipsoid.meanRadius,
+    radius: ellipsoid.meanRadius,
 
     camMoving: () => camMoving,
     cameraPos: camera.position,
-    edgesPos:  camera.edgesPos,
+    edgesPos: camera.edgesPos,
 
     lonLatToScreenXY: camera.lonLatToScreenXY,
 
@@ -55,11 +55,11 @@ export function init(display, center, altitude) {
   };
 
   function update(time) {
-    // Input time is a primitive floating point value representing the 
+    // Input time is a primitive floating point value representing the
     // time this function was called, in seconds
 
     // Check for changes in display size
-    let resized = view.changed();
+    const resized = view.changed();
 
     // Update camera dynamics
     camMoving = camera.update(time, resized, cursor3d);

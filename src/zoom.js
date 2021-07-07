@@ -1,12 +1,10 @@
-import * as vec3 from 'gl-matrix/vec3';
+import * as vec3 from "gl-matrix/vec3";
 import { updateOscillator } from "./oscillator.js";
 
 // initZoom: Update camera altitude based on target set by mouse wheel events
 //  or two-finger pinch movements
 export function initZoom( ellipsoid ) {
   const w0 = 14.14; // Natural frequency of oscillator
-  const minHeight = ellipsoid.meanRadius() * 0.00001;
-  const maxHeight = ellipsoid.meanRadius() * 8.0;
   const minVelocity = 0.001;
   const maxRotation = 0.15;
 
@@ -31,11 +29,11 @@ export function initZoom( ellipsoid ) {
     if (track) {
       // Adjust rotation to keep zoom location fixed on screen
       dPos.set(position);
-      dragonflyStalk( dPos, cursor3d.zoomRay, cursor3d.zoomPosition, ellipsoid );
+      dragonflyStalk(dPos, cursor3d.zoomRay, cursor3d.zoomPosition, ellipsoid);
       // Restrict size of rotation in one time step
-      vec3.subtract( dPos, dPos, position );
-      var limited = limitRotation( dPos, maxRotation );
-      vec3.add( position, position, dPos );
+      vec3.subtract(dPos, dPos, position);
+      var limited = limitRotation(dPos, maxRotation);
+      vec3.add(position, position, dPos);
     }
 
     // Scale rotational velocity by the ratio of the height change
@@ -55,10 +53,10 @@ export function initZoom( ellipsoid ) {
       cursor3d.stopZoom();
     }
     return;
-  }
+  };
 }
 
-function limitRotation( dPos, maxRotation ) {
+function limitRotation(dPos, maxRotation) {
   // Input dPos is a pointer to a 2-element array containing lon, lat changes
   // maxRotation is a primitive floating point value
 
@@ -92,16 +90,16 @@ function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
   var onEllipse = ellipsoid.shoot(target, unrotatedCamPos, ray);
   if (!onEllipse) return; // No intersection!
 
-  // Find the rotation about the y-axis required to bring scene point into 
+  // Find the rotation about the y-axis required to bring scene point into
   // the  x = target[0]  plane
   // First find distance of scene point from scene y-axis
   var sceneR = Math.sqrt( scenePos[0] ** 2 + scenePos[2] ** 2 );
   // If too short, exit rather than tipping poles out of y-z plane
   if ( sceneR < Math.abs(target[0]) ) return;
   var targetRotY = Math.asin( target[0] / sceneR );
-  outRotation[0] = 
+  outRotation[0] =
     Math.atan2( scenePos[0], scenePos[2] ) - // Y-angle of scene vector
-    //Math.asin( target[0] / sceneR );       // Y-angle of target point
+    // Math.asin( target[0] / sceneR );       // Y-angle of target point
     targetRotY;
 
   // We now know the x and y coordinates of the scene vector after rotation
@@ -112,7 +110,7 @@ function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
   // Find the rotation about the screen x-axis required to bring the scene
   // point into the target y = target[1] plane
   // Assumes 0 angle is aligned along Z, and angle > 0 is rotation toward -y !
-  outRotation[1] = 
+  outRotation[1] =
     Math.atan2( -1 * target[1], target[2] ) -  // X-angle of target point
     Math.atan2( -1 * scenePos[1], zRotated );  // X-angle of scene vector
 

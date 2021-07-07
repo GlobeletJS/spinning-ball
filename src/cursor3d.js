@@ -1,4 +1,4 @@
-import * as vec4 from 'gl-matrix/vec4';
+import * as vec4 from "gl-matrix/vec4";
 
 export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
   // Input getRayParams is a method from yawgl.initView, converting screen X/Y
@@ -34,7 +34,7 @@ export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
 
   // Return methods to read/update cursorPosition
   return {
-    // POINTERs to local arrays. WARNING: local values can be changed from outside!
+    // POINTERs to local arrays. WARNING: local vals can be changed outside!
     position: cursorPosition, // TODO: why make the name more ambiguous?
     cursorLonLat,
     clickPosition,
@@ -43,11 +43,11 @@ export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
 
     // Methods to report local state.
     // These protect the local value, since primitives are passed by value
-    isOnScene:  () => onScene,
-    isClicked:  () => clicked,
-    wasTapped:  () => wasTapped,
-    isZooming:  () => zooming,
-    zoomFixed:  () => zoomFix,
+    isOnScene: () => onScene,
+    isClicked: () => clicked,
+    wasTapped: () => wasTapped,
+    isZooming: () => zooming,
+    zoomFixed: () => zoomFix,
     zoomTarget: () => targetHeight,
 
     // Functions to update local state
