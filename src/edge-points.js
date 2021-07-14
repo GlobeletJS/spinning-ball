@@ -5,7 +5,7 @@ export function initEdgePoints(ellipsoid, camPos, camRot, screen) {
   const rayVec = new Float64Array([0.0, 0.0, -1.0, 0.0]);
   const camRay = new Float64Array(4);
   const rayHit = new Float64Array(3);
-  var tanX, tanY;
+  let tanX, tanY;
 
   // Construct a list of points around the screen edges
   const screenPoints = [
@@ -54,7 +54,7 @@ export function initEdgePoints(ellipsoid, camPos, camRot, screen) {
     vec4.transformMat4(camRay, rayVec, camRot);
 
     // Find intersection of ray with ellipsoid
-    var hit = ellipsoid.shoot(rayHit, camPos, camRay);
+    const hit = ellipsoid.shoot(rayHit, camPos, camRay);
     // If it didn't intersect, find the nearest point on the horizon
     if (!hit) ellipsoid.findHorizon(rayHit, camPos, camRay);
 

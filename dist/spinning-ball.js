@@ -516,12 +516,12 @@ function transformMat3(out, a, m) {
 
 function initEcefToLocalGeo() {
   const { cos, sin, sqrt } = Math;
-  var sinLon, cosLon, sinLat, cosLat;
+  let sinLon, cosLon, sinLat, cosLat;
   const toENU = new Float64Array(9);
 
   return ecefToDeltaLonLatAlt;
 
-  function ecefToDeltaLonLatAlt( delta, diff, anchor, viewPos ) {
+  function ecefToDeltaLonLatAlt(delta, diff, anchor, viewPos) {
     // Inputs are pointers to vec3s. anchor is a position in ECEF coordinates.
     // diff represents a differential change (e.g. motion?) near anchor.
     // Output delta will be the corresponding differentials in lon/lat/alt
@@ -529,8 +529,8 @@ function initEcefToLocalGeo() {
     // to the view coordinates.    WARNING: diff will be overwritten
 
     // 1. Transform to local East-North-Up coordinates at the anchor location
-    setupENU( anchor );
-    transformMat3( diff, diff, toENU );
+    setupENU(anchor);
+    transformMat3(diff, diff, toENU);
 
     // 2. Convert horizontal component to changes in longitude, latitude
     const r = length(anchor);
@@ -545,7 +545,7 @@ function initEcefToLocalGeo() {
     return;
   }
 
-  function setupENU( normal ) {
+  function setupENU(normal) {
     // Setup the matrix to rotate from global Earth-Centered-Earth-Fixed
     // to local East-North-Up coordinates. Assumptions for input ECEF:
     //    y-axis is the polar axis
@@ -681,7 +681,7 @@ function initEllipsoid() {
     const discriminant = b ** 2 - 4 * a * c;
 
     const intersected = (discriminant >= 0);
-    var t;
+    let t;
     if (intersected) {
       // We want the closest intersection, with smallest positive t
       // We assume b < 0, if ray is pointing back from camera to ellipsoid
@@ -902,7 +902,7 @@ function initECEF(ellipsoid, initialPos) {
   const rotation = create$1();  // Note: single precision!! (Float32Array)
   const inverse  = create$1();
 
-  const halfPi = Math.PI / 2.0;
+  const { min, max, PI } = Math;
 
   // Set initial values
   update(initialPos);
@@ -916,10 +916,10 @@ function initECEF(ellipsoid, initialPos) {
 
   function update(geodetic) {
     // Limit rotation around screen x-axis to keep global North pointing up
-    geodetic[1] = Math.min(Math.max(-halfPi, geodetic[1]), halfPi);
+    geodetic[1] = min(max(-PI / 2.0, geodetic[1]), PI / 2.0);
     // Avoid accumulation of large values in longitude
-    if (geodetic[0] >  Math.PI) geodetic[0] -= 2.0 * Math.PI;
-    if (geodetic[0] < -Math.PI) geodetic[0] += 2.0 * Math.PI;
+    if (geodetic[0] >  PI) geodetic[0] -= 2.0 * PI;
+    if (geodetic[0] < -PI) geodetic[0] += 2.0 * PI;
 
     // Compute ECEF coordinates. NOTE WebGL coordinate convention:
     // +x to right, +y to top of screen, and +z into the screen
@@ -1034,7 +1034,7 @@ function initEdgePoints(ellipsoid, camPos, camRot, screen) {
   const rayVec = new Float64Array([0.0, 0.0, -1.0, 0.0]);
   const camRay = new Float64Array(4);
   const rayHit = new Float64Array(3);
-  var tanX, tanY;
+  let tanX, tanY;
 
   // Construct a list of points around the screen edges
   const screenPoints = [
@@ -1083,7 +1083,7 @@ function initEdgePoints(ellipsoid, camPos, camRot, screen) {
     transformMat4(camRay, rayVec, camRot);
 
     // Find intersection of ray with ellipsoid
-    var hit = ellipsoid.shoot(rayHit, camPos, camRay);
+    const hit = ellipsoid.shoot(rayHit, camPos, camRay);
     // If it didn't intersect, find the nearest point on the horizon
     if (!hit) ellipsoid.findHorizon(rayHit, camPos, camRay);
 
@@ -1101,53 +1101,56 @@ function updateOscillator(pos, vel, ext, w0, dt, i1, i2) {
   //   natural frequency of the oscillator and the time step
   // Inputs i1, i2 are primitive integer values, indicating components to update
 
-  var expTerm = Math.exp( -w0 * dt );
+  const expTerm = Math.exp( -w0 * dt );
 
   for (let i = i1; i <= i2; i++) {
-    var tmp = (vel[i] + w0 * ext[i]) * dt * expTerm;
+    const tmp = (vel[i] + w0 * ext[i]) * dt * expTerm;
     vel[i] += (expTerm - 1) * vel[i] - w0 * tmp;
     pos[i] += (expTerm - 1) * ext[i] + tmp;
   }
   return;
 }
 
-// initZoom: Update camera altitude based on target set by mouse wheel events
-//  or two-finger pinch movements
-function initZoom( ellipsoid ) {
+const { abs, sqrt, asin, atan2, cos, min, max, PI } = Math;
+
+function initZoom(ellipsoid) {
+  // Update camera altitude based on target set by mouse wheel events
+  //  or two-finger pinch movements
   const w0 = 14.14; // Natural frequency of oscillator
   const minVelocity = 0.001;
   const maxRotation = 0.15;
 
   // NOTE: everything below ASSUMES mass = 1
-  var minEnergy = 0.5 * minVelocity * minVelocity;
-  var extension, kineticE, potentialE;
+  const minEnergy = 0.5 * minVelocity * minVelocity;
+  let extension, kineticE, potentialE;
   const dPos = new Float64Array(3);
 
-  return function( position, velocity, cursor3d, deltaTime, track ) {
+  return function(position, velocity, cursor3d, deltaTime, track) {
     // Input cursor3d is a pointer to an object
     // Inputs position, velocity are pointers to 3-element arrays
     // Input deltaTime is a primitive floating point value
 
-    var targetHeight = cursor3d.zoomTarget();
+    let targetHeight = cursor3d.zoomTarget();
 
     // Save old altitude
-    var oldAltitude = position[2];
+    const oldAltitude = position[2];
 
     dPos[2] = position[2] - targetHeight;
     updateOscillator(position, velocity, dPos, w0, deltaTime, 2, 2);
 
+    let limited;
     if (track) {
       // Adjust rotation to keep zoom location fixed on screen
       dPos.set(position);
       dragonflyStalk(dPos, cursor3d.zoomRay, cursor3d.zoomPosition, ellipsoid);
       // Restrict size of rotation in one time step
       subtract(dPos, dPos, position);
-      var limited = limitRotation(dPos, maxRotation);
+      limited = limitRotation(dPos, maxRotation);
       add(position, position, dPos);
     }
 
     // Scale rotational velocity by the ratio of the height change
-    var heightScale = position[2] / oldAltitude;
+    const heightScale = position[2] / oldAltitude;
     velocity[0] *= heightScale;
     velocity[1] *= heightScale;
 
@@ -1171,11 +1174,11 @@ function limitRotation(dPos, maxRotation) {
   // maxRotation is a primitive floating point value
 
   // Check for longitude value crossing antimeridian
-  if (dPos[0] >  Math.PI) dPos[0] -= 2.0 * Math.PI;
-  if (dPos[0] < -Math.PI) dPos[0] += 2.0 * Math.PI;
+  if (dPos[0] >  PI) dPos[0] -= 2.0 * PI;
+  if (dPos[0] < -PI) dPos[0] += 2.0 * PI;
 
-  if (Math.abs(dPos[0]) > maxRotation) {
-    var tmp = Math.min(Math.max(-maxRotation, dPos[0]), maxRotation) / dPos[0];
+  if (abs(dPos[0]) > maxRotation) {
+    const tmp = min(max(-maxRotation, dPos[0]), maxRotation) / dPos[0];
     dPos[0] *= tmp;
     dPos[1] *= tmp;
     return true;
@@ -1195,41 +1198,41 @@ function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
   // Input scenePos is a pointer to a 3D cursor object
 
   // Find the ray-sphere intersection in unrotated model space coordinates
-  var target = new Float64Array(3);
-  var unrotatedCamPos = [0.0, 0.0, outRotation[2] + length(scenePos)];
-  var onEllipse = ellipsoid.shoot(target, unrotatedCamPos, ray);
+  const target = new Float64Array(3);
+  const unrotatedCamPos = [0.0, 0.0, outRotation[2] + length(scenePos)];
+  const onEllipse = ellipsoid.shoot(target, unrotatedCamPos, ray);
   if (!onEllipse) return; // No intersection!
 
   // Find the rotation about the y-axis required to bring scene point into
   // the  x = target[0]  plane
   // First find distance of scene point from scene y-axis
-  var sceneR = Math.sqrt( scenePos[0] ** 2 + scenePos[2] ** 2 );
+  const sceneR = sqrt(scenePos[0] ** 2 + scenePos[2] ** 2);
   // If too short, exit rather than tipping poles out of y-z plane
-  if ( sceneR < Math.abs(target[0]) ) return;
-  var targetRotY = Math.asin( target[0] / sceneR );
+  if (sceneR < abs(target[0])) return;
+  const targetRotY = asin( target[0] / sceneR );
   outRotation[0] =
-    Math.atan2( scenePos[0], scenePos[2] ) - // Y-angle of scene vector
-    // Math.asin( target[0] / sceneR );       // Y-angle of target point
+    atan2( scenePos[0], scenePos[2] ) - // Y-angle of scene vector
+    // asin( target[0] / sceneR );       // Y-angle of target point
     targetRotY;
 
   // We now know the x and y coordinates of the scene vector after rotation
   // around the y-axis: (x = target[0], y = scenePos[1])
   // Find the z-coordinate so we can compute the remaining required rotation
-  var zRotated = sceneR * Math.cos(targetRotY);
+  const zRotated = sceneR * cos(targetRotY);
 
   // Find the rotation about the screen x-axis required to bring the scene
   // point into the target y = target[1] plane
   // Assumes 0 angle is aligned along Z, and angle > 0 is rotation toward -y !
   outRotation[1] =
-    Math.atan2( -1 * target[1], target[2] ) -  // X-angle of target point
-    Math.atan2( -1 * scenePos[1], zRotated );  // X-angle of scene vector
+    atan2( -1 * target[1], target[2] ) -  // X-angle of target point
+    atan2( -1 * scenePos[1], zRotated );  // X-angle of scene vector
 
   return;
 }
 
-// initRotation: Updates rotations and rotation velocities based on forces
-// applied via a mouse click & drag event.
 function initRotation( ellipsoid ) {
+  // Update rotations and rotation velocities based on forces applied
+  // via a mouse click & drag event
   const w0 = 40.0;
   const extension = new Float64Array(3);
 
@@ -1253,15 +1256,13 @@ function initRotation( ellipsoid ) {
   };
 }
 
-// initCoast: Update rotations based on a freely spinning globe (no forces)
 function initCoast( ellipsoid ) {
+  // Update rotations based on a freely spinning globe (no forces)
   const damping = 3.0;
   const radius = ellipsoid.meanRadius();
   const minSpeed = 0.03;
 
-  var dvDamp = 0.0;
-
-  return function( position, velocity, deltaTime ) {
+  return function(position, velocity, deltaTime) {
     // Inputs rotation, rotationVel are pointers to 3-element arrays
     // Input deltaTime is a primitive value (floating point)
     // TODO: switch to exact formula? (not finite difference)
@@ -1273,7 +1274,7 @@ function initCoast( ellipsoid ) {
     }
 
     // Adjust previous velocities for damping over the past time interval
-    dvDamp = -1.0 * damping * deltaTime;
+    const dvDamp = -1.0 * damping * deltaTime;
     // vec3.scaleAndAdd(velocity, velocity, velocity, dvDamp);
     velocity[0] += velocity[0] * dvDamp;
     velocity[1] += velocity[1] * dvDamp;
@@ -1343,7 +1344,7 @@ function initCameraDynamics(screen, ellipsoid, initialPosition) {
     ecef.position, ecef.inverse, screen);
 
   // Initialize some values and working arrays
-  var time = 0.0;
+  let time = 0.0;
   const rayVec = new Float64Array(4);
 
   // Initialize values & update functions for translations & rotations
@@ -1383,7 +1384,7 @@ function initCameraDynamics(screen, ellipsoid, initialPosition) {
     // If timestep too big, wait till next frame to update physics
     if (deltaTime > 0.25) return resized;
 
-    var needToRender;
+    let needToRender;
     if ( cursor3d.isClicked() ) {       // Rotate globe based on cursor drag
       rotate( position, velocity, cursor3d, deltaTime );
       needToRender = true;
@@ -1394,10 +1395,10 @@ function initCameraDynamics(screen, ellipsoid, initialPosition) {
       // Update ECEF position and rotation/inverse matrices
       ecef.update(position);
       // Update 2D screen position of 3D zoom position
-      var visible = projector.ecefToScreenRay( rayVec, cursor3d.zoomPosition );
+      const visible = projector.ecefToScreenRay(rayVec, cursor3d.zoomPosition);
       if (visible) {
-        if ( cursor3d.isClicked() ) cursor3d.zoomRay.set(rayVec);
-        zoom( position, velocity, cursor3d, deltaTime, cursor3d.zoomFixed() );
+        if (cursor3d.isClicked()) cursor3d.zoomRay.set(rayVec);
+        zoom(position, velocity, cursor3d, deltaTime, cursor3d.zoomFixed());
       } else {
         stopZoom(); // TODO: is this needed? Might want to keep coasting
         cursor3d.stopZoom();
@@ -1429,15 +1430,15 @@ function initCursor3d(getRayParams, ellipsoid, initialPosition) {
   const cursorRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
 
   // Flags about the cursor state
-  var onScene = false;
-  var clicked = false;
-  var zooming = false;
-  var wasTapped = false;
+  let onScene = false;
+  let clicked = false;
+  let zooming = false;
+  let wasTapped = false;
   // Whether to fix the screen position of the zoom
-  var zoomFix = false;
+  let zoomFix = false;
 
   // Track target altitude for zooming
-  var targetHeight = initialPosition[2];
+  let targetHeight = initialPosition[2];
   const minHeight = ellipsoid.meanRadius() * 0.00001;
   const maxHeight = ellipsoid.meanRadius() * 8.0;
   // Target screen ray for zooming
@@ -1546,7 +1547,7 @@ function init(display, center, altitude) {
 
   // Initialize camera dynamics: time, position, velocity, etc.
   // First check and convert user parameters for initial position
-  var initialPos = (center && Array.isArray(center) && center.length === 2)
+  const initialPos = (center && Array.isArray(center) && center.length === 2)
     ? [center[0] / degrees, center[1] / degrees]
     : [0.0, 0.0];
   initialPos[2] = (altitude)
@@ -1557,7 +1558,7 @@ function init(display, center, altitude) {
   // Initialize interaction with the ellipsoid via the mouse and screen
   const cursor3d = initCursor3d(view.getRayParams, ellipsoid, camera.position);
 
-  var camMoving, cursorChanged;
+  let camMoving, cursorChanged;
 
   return {
     view,

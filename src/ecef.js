@@ -9,7 +9,7 @@ export function initECEF(ellipsoid, initialPos) {
   const rotation = mat4.create();  // Note: single precision!! (Float32Array)
   const inverse  = mat4.create();
 
-  const halfPi = Math.PI / 2.0;
+  const { min, max, PI } = Math;
 
   // Set initial values
   update(initialPos);
@@ -23,10 +23,10 @@ export function initECEF(ellipsoid, initialPos) {
 
   function update(geodetic) {
     // Limit rotation around screen x-axis to keep global North pointing up
-    geodetic[1] = Math.min(Math.max(-halfPi, geodetic[1]), halfPi);
+    geodetic[1] = min(max(-PI / 2.0, geodetic[1]), PI / 2.0);
     // Avoid accumulation of large values in longitude
-    if (geodetic[0] >  Math.PI) geodetic[0] -= 2.0 * Math.PI;
-    if (geodetic[0] < -Math.PI) geodetic[0] += 2.0 * Math.PI;
+    if (geodetic[0] >  PI) geodetic[0] -= 2.0 * PI;
+    if (geodetic[0] < -PI) geodetic[0] += 2.0 * PI;
 
     // Compute ECEF coordinates. NOTE WebGL coordinate convention:
     // +x to right, +y to top of screen, and +z into the screen

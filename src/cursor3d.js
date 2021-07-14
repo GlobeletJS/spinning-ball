@@ -15,15 +15,15 @@ export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
   const cursorRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
 
   // Flags about the cursor state
-  var onScene = false;
-  var clicked = false;
-  var zooming = false;
-  var wasTapped = false;
+  let onScene = false;
+  let clicked = false;
+  let zooming = false;
+  let wasTapped = false;
   // Whether to fix the screen position of the zoom
-  var zoomFix = false;
+  let zoomFix = false;
 
   // Track target altitude for zooming
-  var targetHeight = initialPosition[2];
+  let targetHeight = initialPosition[2];
   const minHeight = ellipsoid.meanRadius() * 0.00001;
   const maxHeight = ellipsoid.meanRadius() * 8.0;
   // Target screen ray for zooming

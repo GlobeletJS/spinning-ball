@@ -23,10 +23,10 @@ export function updateOscillator(pos, vel, ext, w0, dt, i1, i2) {
   //   natural frequency of the oscillator and the time step
   // Inputs i1, i2 are primitive integer values, indicating components to update
 
-  var expTerm = Math.exp( -w0 * dt );
+  const expTerm = Math.exp( -w0 * dt );
 
   for (let i = i1; i <= i2; i++) {
-    var tmp = (vel[i] + w0 * ext[i]) * dt * expTerm;
+    const tmp = (vel[i] + w0 * ext[i]) * dt * expTerm;
     vel[i] += (expTerm - 1) * vel[i] - w0 * tmp;
     pos[i] += (expTerm - 1) * ext[i] + tmp;
   }

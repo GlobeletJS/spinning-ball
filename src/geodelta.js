@@ -2,12 +2,12 @@ import * as vec3 from "gl-matrix/vec3";
 
 export function initEcefToLocalGeo() {
   const { cos, sin, sqrt } = Math;
-  var sinLon, cosLon, sinLat, cosLat;
+  let sinLon, cosLon, sinLat, cosLat;
   const toENU = new Float64Array(9);
 
   return ecefToDeltaLonLatAlt;
 
-  function ecefToDeltaLonLatAlt( delta, diff, anchor, viewPos ) {
+  function ecefToDeltaLonLatAlt(delta, diff, anchor, viewPos) {
     // Inputs are pointers to vec3s. anchor is a position in ECEF coordinates.
     // diff represents a differential change (e.g. motion?) near anchor.
     // Output delta will be the corresponding differentials in lon/lat/alt
@@ -15,8 +15,8 @@ export function initEcefToLocalGeo() {
     // to the view coordinates.    WARNING: diff will be overwritten
 
     // 1. Transform to local East-North-Up coordinates at the anchor location
-    setupENU( anchor );
-    vec3.transformMat3( diff, diff, toENU );
+    setupENU(anchor);
+    vec3.transformMat3(diff, diff, toENU);
 
     // 2. Convert horizontal component to changes in longitude, latitude
     const r = vec3.length(anchor);
@@ -31,7 +31,7 @@ export function initEcefToLocalGeo() {
     return;
   }
 
-  function setupENU( normal ) {
+  function setupENU(normal) {
     // Setup the matrix to rotate from global Earth-Centered-Earth-Fixed
     // to local East-North-Up coordinates. Assumptions for input ECEF:
     //    y-axis is the polar axis

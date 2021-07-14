@@ -22,7 +22,7 @@ export function init(display, center, altitude) {
 
   // Initialize camera dynamics: time, position, velocity, etc.
   // First check and convert user parameters for initial position
-  var initialPos = (center && Array.isArray(center) && center.length === 2)
+  const initialPos = (center && Array.isArray(center) && center.length === 2)
     ? [center[0] / degrees, center[1] / degrees]
     : [0.0, 0.0];
   initialPos[2] = (altitude)
@@ -33,7 +33,7 @@ export function init(display, center, altitude) {
   // Initialize interaction with the ellipsoid via the mouse and screen
   const cursor3d = initCursor3d(view.getRayParams, ellipsoid, camera.position);
 
-  var camMoving, cursorChanged;
+  let camMoving, cursorChanged;
 
   return {
     view,

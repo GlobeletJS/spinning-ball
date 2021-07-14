@@ -21,7 +21,7 @@ export function initCameraDynamics(screen, ellipsoid, initialPosition) {
     ecef.position, ecef.inverse, screen);
 
   // Initialize some values and working arrays
-  var time = 0.0;
+  let time = 0.0;
   const rayVec = new Float64Array(4);
 
   // Initialize values & update functions for translations & rotations
@@ -61,7 +61,7 @@ export function initCameraDynamics(screen, ellipsoid, initialPosition) {
     // If timestep too big, wait till next frame to update physics
     if (deltaTime > 0.25) return resized;
 
-    var needToRender;
+    let needToRender;
     if ( cursor3d.isClicked() ) {       // Rotate globe based on cursor drag
       rotate( position, velocity, cursor3d, deltaTime );
       needToRender = true;
@@ -72,10 +72,10 @@ export function initCameraDynamics(screen, ellipsoid, initialPosition) {
       // Update ECEF position and rotation/inverse matrices
       ecef.update(position);
       // Update 2D screen position of 3D zoom position
-      var visible = projector.ecefToScreenRay( rayVec, cursor3d.zoomPosition );
+      const visible = projector.ecefToScreenRay(rayVec, cursor3d.zoomPosition);
       if (visible) {
-        if ( cursor3d.isClicked() ) cursor3d.zoomRay.set(rayVec);
-        zoom( position, velocity, cursor3d, deltaTime, cursor3d.zoomFixed() );
+        if (cursor3d.isClicked()) cursor3d.zoomRay.set(rayVec);
+        zoom(position, velocity, cursor3d, deltaTime, cursor3d.zoomFixed());
       } else {
         stopZoom(); // TODO: is this needed? Might want to keep coasting
         cursor3d.stopZoom();

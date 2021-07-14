@@ -94,7 +94,7 @@ export function initEllipsoid() {
     const discriminant = b ** 2 - 4 * a * c;
 
     const intersected = (discriminant >= 0);
-    var t;
+    let t;
     if (intersected) {
       // We want the closest intersection, with smallest positive t
       // We assume b < 0, if ray is pointing back from camera to ellipsoid
