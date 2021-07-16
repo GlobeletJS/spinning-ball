@@ -989,160 +989,6 @@ function initECEF(ellipsoid, initialPos) {
   }
 }
 
-/**
- * 4 Dimensional Vector
- * @module vec4
- */
-
-/**
- * Creates a new, empty vec4
- *
- * @returns {vec4} a new 4D vector
- */
-
-function create() {
-  var out = new ARRAY_TYPE(4);
-
-  if (ARRAY_TYPE != Float32Array) {
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-  }
-
-  return out;
-}
-/**
- * Transforms the vec4 with a mat4.
- *
- * @param {vec4} out the receiving vector
- * @param {ReadonlyVec4} a the vector to transform
- * @param {ReadonlyMat4} m matrix to transform with
- * @returns {vec4} out
- */
-
-function transformMat4(out, a, m) {
-  var x = a[0],
-      y = a[1],
-      z = a[2],
-      w = a[3];
-  out[0] = m[0] * x + m[4] * y + m[8] * z + m[12] * w;
-  out[1] = m[1] * x + m[5] * y + m[9] * z + m[13] * w;
-  out[2] = m[2] * x + m[6] * y + m[10] * z + m[14] * w;
-  out[3] = m[3] * x + m[7] * y + m[11] * z + m[15] * w;
-  return out;
-}
-/**
- * Perform some operation over an array of vec4s.
- *
- * @param {Array} a the array of vectors to iterate over
- * @param {Number} stride Number of elements between the start of each vec4. If 0 assumes tightly packed
- * @param {Number} offset Number of elements to skip at the beginning of the array
- * @param {Number} count Number of vec4s to iterate over. If 0 iterates over entire array
- * @param {Function} fn Function to call for each vector in the array
- * @param {Object} [arg] additional argument to pass to fn
- * @returns {Array} a
- * @function
- */
-
-(function () {
-  var vec = create();
-  return function (a, stride, offset, count, fn, arg) {
-    var i, l;
-
-    if (!stride) {
-      stride = 4;
-    }
-
-    if (!offset) {
-      offset = 0;
-    }
-
-    if (count) {
-      l = Math.min(count * stride + offset, a.length);
-    } else {
-      l = a.length;
-    }
-
-    for (i = offset; i < l; i += stride) {
-      vec[0] = a[i];
-      vec[1] = a[i + 1];
-      vec[2] = a[i + 2];
-      vec[3] = a[i + 3];
-      fn(vec, vec, arg);
-      a[i] = vec[0];
-      a[i + 1] = vec[1];
-      a[i + 2] = vec[2];
-      a[i + 3] = vec[3];
-    }
-
-    return a;
-  };
-})();
-
-function initEdgePoints(ellipsoid, camPos, camRot, screen) {
-  // Allocate working arrays and variables
-  const rayVec = new Float64Array([0.0, 0.0, -1.0, 0.0]);
-  const camRay = new Float64Array(4);
-  const rayHit = new Float64Array(3);
-  let tanX, tanY;
-
-  // Construct a list of points around the screen edges
-  const screenPoints = [
-    [-1.0, -1.0], // Bottom left
-    [-0.5, -1.0],
-    [0.0, -1.0], // Bottom center
-    [0.5, -1.0],
-    [1.0, -1.0], // Bottom right
-    [1.0, -0.5],
-    [1.0,  0.0], // Right center
-    [1.0,  0.5],
-    [1.0,  1.0], // Top right
-    [0.5,  1.0],
-    [0.0,  1.0], // Top center
-    [-0.5,  1.0],
-    [-1.0,  1.0], // Top left
-    [-1.0,  0.5],
-    [-1.0,  0.0], // Left center
-    [-1.0, -0.5],
-    [-1.0, -1.0], // Loop back to bottom left
-  ];
-
-  // An edgePoint is the point on the ellipsoid visible from screenPoint
-  const edgePoints = screenPoints.map(() => []);
-  update();
-
-  return {
-    lonLats: edgePoints,  // WARNING: exposed to updates from outside!
-    update,
-  };
-
-  function update() {
-    // Update the view angles at the screen edges
-    tanX = screen.rightEdge();
-    tanY = screen.topEdge();
-
-    // Find the ellipsoid intersection at each screen point
-    screenPoints.forEach(shoot);
-  }
-
-  function shoot(screenPos, index) {
-    // Construct the ray vector
-    rayVec[0] = screenPos[0] * tanX;
-    rayVec[1] = screenPos[1] * tanY;
-    // Rotate to model coordinates (Earth-Centered Earth-Fixed)
-    transformMat4(camRay, rayVec, camRot);
-
-    // Find intersection of ray with ellipsoid
-    const hit = ellipsoid.shoot(rayHit, camPos, camRay);
-    // If it didn't intersect, find the nearest point on the horizon
-    if (!hit) ellipsoid.findHorizon(rayHit, camPos, camRay);
-
-    // Convert to longitude/latitude. NOTE: geocentric!!
-    ellipsoid.ecef2geocentric(edgePoints[index], rayHit);
-  }
-}
-
 function updateOscillator(pos, vel, ext, w0, dt, i1, i2) {
   // Update position and velocity for a critically damped oscillator, following
   // http://mathworld.wolfram.com/CriticallyDampedSimpleHarmonicMotion.html
@@ -1388,8 +1234,6 @@ function initCameraDynamics({ view, ellipsoid, initialPosition }) {
   // Initialize ECEF position, rotation matrix, inverse, and update method
   const ecef = initECEF(ellipsoid, position);
 
-  // Keep track of the longitude/latitude of the edges of the display
-  const edges = initEdgePoints(ellipsoid, ecef.position, ecef.rotation, view);
   // Initialize transforms from ellipsoid to screen positions
   const projector = initProjector(ellipsoid, ecef.position, ecef.inverse, view);
 
@@ -1405,7 +1249,6 @@ function initCameraDynamics({ view, ellipsoid, initialPosition }) {
   // Return methods to read/update state
   return {
     position, // WARNING: Exposes local array to changes from outside
-    edgesPos: edges.lonLats,
 
     ecefPos: ecef.position,
     rotation: ecef.rotation,
@@ -1457,13 +1300,101 @@ function initCameraDynamics({ view, ellipsoid, initialPosition }) {
     }
 
     needToRender = needToRender || resized;
-    if (needToRender) {
-      ecef.update(position);
-      edges.update();
-    }
+    if (needToRender) ecef.update(position);
     return needToRender;
   }
 }
+
+/**
+ * 4 Dimensional Vector
+ * @module vec4
+ */
+
+/**
+ * Creates a new, empty vec4
+ *
+ * @returns {vec4} a new 4D vector
+ */
+
+function create() {
+  var out = new ARRAY_TYPE(4);
+
+  if (ARRAY_TYPE != Float32Array) {
+    out[0] = 0;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+  }
+
+  return out;
+}
+/**
+ * Transforms the vec4 with a mat4.
+ *
+ * @param {vec4} out the receiving vector
+ * @param {ReadonlyVec4} a the vector to transform
+ * @param {ReadonlyMat4} m matrix to transform with
+ * @returns {vec4} out
+ */
+
+function transformMat4(out, a, m) {
+  var x = a[0],
+      y = a[1],
+      z = a[2],
+      w = a[3];
+  out[0] = m[0] * x + m[4] * y + m[8] * z + m[12] * w;
+  out[1] = m[1] * x + m[5] * y + m[9] * z + m[13] * w;
+  out[2] = m[2] * x + m[6] * y + m[10] * z + m[14] * w;
+  out[3] = m[3] * x + m[7] * y + m[11] * z + m[15] * w;
+  return out;
+}
+/**
+ * Perform some operation over an array of vec4s.
+ *
+ * @param {Array} a the array of vectors to iterate over
+ * @param {Number} stride Number of elements between the start of each vec4. If 0 assumes tightly packed
+ * @param {Number} offset Number of elements to skip at the beginning of the array
+ * @param {Number} count Number of vec4s to iterate over. If 0 iterates over entire array
+ * @param {Function} fn Function to call for each vector in the array
+ * @param {Object} [arg] additional argument to pass to fn
+ * @returns {Array} a
+ * @function
+ */
+
+(function () {
+  var vec = create();
+  return function (a, stride, offset, count, fn, arg) {
+    var i, l;
+
+    if (!stride) {
+      stride = 4;
+    }
+
+    if (!offset) {
+      offset = 0;
+    }
+
+    if (count) {
+      l = Math.min(count * stride + offset, a.length);
+    } else {
+      l = a.length;
+    }
+
+    for (i = offset; i < l; i += stride) {
+      vec[0] = a[i];
+      vec[1] = a[i + 1];
+      vec[2] = a[i + 2];
+      vec[3] = a[i + 3];
+      fn(vec, vec, arg);
+      a[i] = vec[0];
+      a[i + 1] = vec[1];
+      a[i + 2] = vec[2];
+      a[i + 3] = vec[3];
+    }
+
+    return a;
+  };
+})();
 
 function initCursor3d(getRayParams, ellipsoid, initialPosition) {
   // Input getRayParams is a method from yawgl.initView, converting screen X/Y
@@ -1601,7 +1532,6 @@ function init(userParams) {
 
     camMoving: () => camMoving,
     cameraPos: camera.position,
-    edgesPos: camera.edgesPos,
 
     lonLatToScreenXY: camera.lonLatToScreenXY,
 

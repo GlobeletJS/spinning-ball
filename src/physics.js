@@ -1,5 +1,4 @@
 import { initECEF } from "./ecef.js";
-import { initEdgePoints } from "./edge-points.js";
 import { initZoom } from "./zoom.js";
 import { initRotation, initCoast } from "./rotate.js";
 import { initProjector } from "./projector.js";
@@ -14,8 +13,6 @@ export function initCameraDynamics({ view, ellipsoid, initialPosition }) {
   // Initialize ECEF position, rotation matrix, inverse, and update method
   const ecef = initECEF(ellipsoid, position);
 
-  // Keep track of the longitude/latitude of the edges of the display
-  const edges = initEdgePoints(ellipsoid, ecef.position, ecef.rotation, view);
   // Initialize transforms from ellipsoid to screen positions
   const projector = initProjector(ellipsoid, ecef.position, ecef.inverse, view);
 
@@ -31,7 +28,6 @@ export function initCameraDynamics({ view, ellipsoid, initialPosition }) {
   // Return methods to read/update state
   return {
     position, // WARNING: Exposes local array to changes from outside
-    edgesPos: edges.lonLats,
 
     ecefPos: ecef.position,
     rotation: ecef.rotation,
@@ -83,10 +79,7 @@ export function initCameraDynamics({ view, ellipsoid, initialPosition }) {
     }
 
     needToRender = needToRender || resized;
-    if (needToRender) {
-      ecef.update(position);
-      edges.update();
-    }
+    if (needToRender) ecef.update(position);
     return needToRender;
   }
 }

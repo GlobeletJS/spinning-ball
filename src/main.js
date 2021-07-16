@@ -25,7 +25,6 @@ export function init(userParams) {
 
     camMoving: () => camMoving,
     cameraPos: camera.position,
-    edgesPos: camera.edgesPos,
 
     lonLatToScreenXY: camera.lonLatToScreenXY,
 
