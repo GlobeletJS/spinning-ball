@@ -3,6 +3,7 @@ import { initEcefToLocalGeo } from "./geodelta";
 
 export function initEllipsoid() {
   const { atan2, sin, cos, sqrt } = Math;
+
   // Store ellipsoid parameters
   const semiMajor = 6371.0;  // kilometers
   const semiMinor = 6371.0;  // kilometers
@@ -10,10 +11,10 @@ export function initEllipsoid() {
   // https://en.wikipedia.org/wiki/Earth_radius#Mean_radius
   const meanRadius = (2.0 * semiMajor + semiMinor) / 3.0;
 
-  // Working vectors for shootEllipsoid, findHorizon
-  const mCam = new Float64Array(3);
-  const mRay = new Float64Array(3);
-  const dRay = new Float64Array(3);
+  // M: matrix to scale ellipsoid to unit sphere. The ellipsoid is
+  // aligned with the coordinate axes, so we can store only the diagonal
+  const Mdiag = [semiMajor, semiMinor, semiMajor];
+  const M = vec => vec.map((c, i) => c / Mdiag[i]);
 
   return {
     meanRadius: () => meanRadius,
@@ -73,19 +74,8 @@ export function initEllipsoid() {
     // Return value indicates whether the ray did in fact intersect the spheroid
 
     // Math: solving for values t where || M (camera + t*rayVec) || = 1,
-    //  where M is the matrix that scales the ellipsoid to the unit sphere,
-    //  i.e., for P = (x,y,z), MP = (x/a, y/b, z/c). Since M is diagonal
-    //  (ellipsoid aligned along coordinate axes) we just scale each coordinate.
-    mCam.set([
-      camera[0] / semiMajor,
-      camera[1] / semiMinor,
-      camera[2] / semiMajor
-    ]);
-    mRay.set([
-      rayVec[0] / semiMajor,
-      rayVec[1] / semiMinor,
-      rayVec[2] / semiMajor
-    ]);
+    const mCam = M(camera);
+    const mRay = M(rayVec);
 
     // We now have <mRay,mRay>*t^2 + 2*<mRay,mCam>*t + <mCam,mCam> - 1 = 0
     const a = vec3.dot(mRay, mRay);
@@ -94,18 +84,15 @@ export function initEllipsoid() {
     const discriminant = b ** 2 - 4 * a * c;
 
     const intersected = (discriminant >= 0);
-    let t;
-    if (intersected) {
-      // We want the closest intersection, with smallest positive t
-      // We assume b < 0, if ray is pointing back from camera to ellipsoid
-      t = (-b - sqrt(discriminant)) / (2.0 * a);
-    } else {
-      // Find the point that comes closest to the unit sphere
-      //   NOTE: this is NOT the closest point to the ellipsoid!
-      //   And it is not even the point on the horizon! It is closer...
-      // Minimize a*t^2 + b*t + c, by finding the zero of the derivative
-      t = -0.5 * b / a;
-    }
+
+    // There are generally 2 intersections. We want the closer one, with
+    // smallest positive t. (b < 0, if ray is back from camera to ellipsoid)
+    // If no intersection, find the point on the ray that comes closest to the
+    // unit sphere: minimize a*t^2 + b*t + c (get zero of derivative)
+    // NOTE: NOT the closest point on the ellipsoid! And NOT on the horizon!
+    const t = (intersected)
+      ? (-b - sqrt(discriminant)) / (2.0 * a)
+      : -0.5 * b / a;
 
     // NOTE: rayVec is actually a vec4
     vec3.scaleAndAdd(intersection, camera, rayVec, t);
@@ -116,6 +103,7 @@ export function initEllipsoid() {
     // Find the point on the horizon under rayvec.
     // We first adjust rayVec to point it toward the horizon, and then
     // re-shoot the ellipsoid with the corrected ray
+    const dRay = new Float64Array(3);
 
     // 1. Find the component of rayVec parallel to camera direction
     vec3.normalize(dRay, camera); // Unit vector along camera direction

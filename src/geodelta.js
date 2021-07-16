@@ -1,7 +1,7 @@
 import * as vec3 from "gl-matrix/vec3";
 
 export function initEcefToLocalGeo() {
-  const { cos, sin, sqrt } = Math;
+  const { cos, sin, hypot } = Math;
   let sinLon, cosLon, sinLat, cosLat;
   const toENU = new Float64Array(9);
 
@@ -39,17 +39,13 @@ export function initEcefToLocalGeo() {
     // Input normal is an ellipsoid surface normal at the desired ENU origin
 
     // Update sines and cosines of the latitude and longitude of the normal
-    const p2 = normal[0] ** 2 + normal[2] ** 2;
-    const p = sqrt(p2);
-    if (p > 0) {
-      sinLon = normal[0] / p;
-      cosLon = normal[2] / p;
-    } else {
-      sinLon = 0.0;
-      cosLon = 0.0;
-    }
-    const r = sqrt(p2 + normal[1] ** 2);
-    sinLat = normal[1] / r;
+    const [x, y, z] = normal;
+    const p = hypot(x, z);
+    sinLon = (p > 0) ? x / p : 0.0;
+    cosLon = (p > 0) ? z / p : 0.0;
+
+    const r = hypot(x, y, z);
+    sinLat = y / r;
     cosLat = p / r;
 
     // Build matrix. Follows Widnal & Peraire (MIT) p.7, with the axes renamed:
