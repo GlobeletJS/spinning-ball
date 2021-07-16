@@ -28,7 +28,6 @@ export function initEcefToLocalGeo() {
     // direction vec3.cross(anchor,North), or -East. We only want the component
     // rotating about the x-axis in view coordinates.
     delta[1] *= (cos(viewPos[0]) * cosLon + sin(viewPos[0]) * sinLon);
-    return;
   }
 
   function setupENU(normal) {
@@ -66,6 +65,5 @@ export function initEcefToLocalGeo() {
     // Elements (0, 3, 6) = unit vector in East direction
     // Elements (1, 4, 7) = unit vector in North direction
     // Elements (2, 5, 8) = unit vector in Up direction
-    return;
   }
 }
