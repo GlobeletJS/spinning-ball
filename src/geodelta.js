@@ -2,24 +2,30 @@ import * as vec3 from "gl-matrix/vec3";
 
 export function initEcefToLocalGeo() {
   const { cos, sin, hypot } = Math;
-  let sinLon, cosLon, sinLat, cosLat;
   const toENU = new Float64Array(9);
 
-  return ecefToDeltaLonLatAlt;
-
-  function ecefToDeltaLonLatAlt(delta, diff, anchor, viewPos) {
-    // Inputs are pointers to vec3s. anchor is a position in ECEF coordinates.
+  return function ecefToDeltaLonLatAlt(delta, diff, anchor, viewPos) {
+    // Inputs are pointers to vec3s.  WARNING: diff will be overwritten
     // diff represents a differential change (e.g. motion?) near anchor.
+    // viewPos represents the position of the model coordinates (ECEF)
+    //   relative to the view coordinates.
     // Output delta will be the corresponding differentials in lon/lat/alt
-    // viewPos represents the position of the model coordinates (ECEF) relative
-    // to the view coordinates.    WARNING: diff will be overwritten
+
+    // 0. Compute sines and cosines of longitude and latitude at anchor, which
+    // is a surface normal on an ellipsoid (or an ECEF position on a sphere)
+    const [x, y, z] = anchor;
+    const p = hypot(x, z);
+    const cosLon = (p > 0) ? z / p : 0.0;
+    const sinLon = (p > 0) ? x / p : 0.0;
+    const r = hypot(x, y, z);
+    const cosLat = p / r;
+    const sinLat = y / r;
 
     // 1. Transform to local East-North-Up coordinates at the anchor location
-    setupENU(anchor);
+    setupENU(cosLon, sinLon, cosLat, sinLat);
     vec3.transformMat3(diff, diff, toENU);
 
     // 2. Convert horizontal component to changes in longitude, latitude
-    const r = vec3.length(anchor);
     delta[0] = diff[0] / r / (cosLat + 0.0001); // +0.0001 avoids /0
     delta[1] = diff[1] / r;
     delta[2] = diff[2];
@@ -28,26 +34,12 @@ export function initEcefToLocalGeo() {
     // direction vec3.cross(anchor,North), or -East. We only want the component
     // rotating about the x-axis in view coordinates.
     delta[1] *= (cos(viewPos[0]) * cosLon + sin(viewPos[0]) * sinLon);
-  }
+  };
 
-  function setupENU(normal) {
-    // Setup the matrix to rotate from global Earth-Centered-Earth-Fixed
-    // to local East-North-Up coordinates. Assumptions for input ECEF:
-    //    y-axis is the polar axis
-    //   +z-axis points toward latitude = longitude = 0.
-    // Input normal is an ellipsoid surface normal at the desired ENU origin
-
-    // Update sines and cosines of the latitude and longitude of the normal
-    const [x, y, z] = normal;
-    const p = hypot(x, z);
-    sinLon = (p > 0) ? x / p : 0.0;
-    cosLon = (p > 0) ? z / p : 0.0;
-
-    const r = hypot(x, y, z);
-    sinLat = y / r;
-    cosLat = p / r;
-
-    // Build matrix. Follows Widnal & Peraire (MIT) p.7, with the axes renamed:
+  function setupENU(cosLon, sinLon, cosLat, sinLat) {
+    // Build matrix to rotate from global Earth-Centered-Earth-Fixed
+    // to local East-North-Up coordinates.
+    // Follows Widnal & Peraire (MIT) p.7, with axes renamed:
     //   z -> y, y -> x, x -> z
     // Using OpenGL COLUMN-MAJOR format!!
     toENU[0] =  cosLon;
