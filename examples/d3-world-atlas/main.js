@@ -23,7 +23,7 @@ export function main() {
   // Save default styles
   context.save();
 
-  const ball = spinningBall.init(globeDiv, center, altitude);
+  const ball = spinningBall.init({ display: globeDiv, center, altitude });
 
   const projection = geoSatellite()
     .translate([numPixelsX / 2, numPixelsY / 2])

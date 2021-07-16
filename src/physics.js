@@ -4,7 +4,7 @@ import { initZoom } from "./zoom.js";
 import { initRotation, initCoast } from "./rotate.js";
 import { initProjector } from "./projector.js";
 
-export function initCameraDynamics(screen, ellipsoid, initialPosition) {
+export function initCameraDynamics({ view, ellipsoid, initialPosition }) {
   // Position & velocity are computed in latitude & longitude in radians, and
   //   altitude defined by distance along surface normal, in the same length
   //   units as semiMajor and semiMinor in ellipsoid.js
@@ -14,11 +14,10 @@ export function initCameraDynamics(screen, ellipsoid, initialPosition) {
   // Initialize ECEF position, rotation matrix, inverse, and update method
   const ecef = initECEF(ellipsoid, position);
 
-  // Keep track of the longitude/latitude of the edges of the screen
-  const edges = initEdgePoints(ellipsoid, ecef.position, ecef.rotation, screen);
+  // Keep track of the longitude/latitude of the edges of the display
+  const edges = initEdgePoints(ellipsoid, ecef.position, ecef.rotation, view);
   // Initialize transforms from ellipsoid to screen positions
-  const projector = initProjector(ellipsoid,
-    ecef.position, ecef.inverse, screen);
+  const projector = initProjector(ellipsoid, ecef.position, ecef.inverse, view);
 
   // Initialize some values and working arrays
   let time = 0.0;

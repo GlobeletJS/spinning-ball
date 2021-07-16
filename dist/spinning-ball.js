@@ -68,204 +68,6 @@ function initView(porthole, fieldOfView) {
   }
 }
 
-function initCursor() {
-  // What does an animation need to know about the cursor at each frame?
-  // First, whether the user did any of the following since the last frame:
-  //  - Started new actions
-  var touchStarted = false; // Touched or clicked the element
-  var zoomStarted  = false; // Rotated mousewheel, or started two-finger touch
-  //  - Changed something
-  var moved  = false;       // Moved mouse or touch point
-  var zoomed = false;       // Rotated mousewheel, or adjusted two-finger touch
-  //  - Is potentially in the middle of something
-  var tapping = false;      // No touchEnd, and no cursor motion
-  //  - Ended actions
-  var touchEnded = false;   // mouseup or touchend/cancel/leave
-  var tapped = false;       // Completed a click or tap action
-
-  // We also need to know the current cursor position and zoom scale
-  var cursorX = 0;
-  var cursorY = 0;
-  var zscale = 1.0;
-
-  // For tap/click reporting, we need to remember where the touch started
-  var startX = 0;
-  var startY = 0;
-  // What is a click/tap and what is a drag? If the cursor moved more than
-  // this threshold between touchStart and touchEnd, it is a drag
-  const threshold = 6;
-
-  return {
-    // Methods to report local state. Return a copy to protect local values
-    touchStarted: () => touchStarted,
-    zoomStarted: () => zoomStarted,
-    moved: () => moved,
-    zoomed: () => zoomed,
-    tapped: () => tapped,
-    touchEnded: () => touchEnded,
-    hasChanged: () => (moved || zoomed || tapped),
-    zscale: () => zscale,
-    x: () => cursorX,
-    y: () => cursorY,
-
-    // Methods to update local state
-    startTouch,
-    startZoom,
-    move,
-    zoom,
-    endTouch,
-    reset,
-  };
-
-  function startTouch(evnt) {
-    cursorX = evnt.clientX;
-    cursorY = evnt.clientY;
-    touchStarted = true;
-    startX = cursorX;
-    startY = cursorY;
-    tapping = true;
-  }
-
-  function startZoom(evnt) {
-    // Store the cursor position
-    cursorX = evnt.clientX;
-    cursorY = evnt.clientY;
-    zoomStarted = true;
-    tapping = false;
-  }
-
-  function move(evnt) {
-    cursorX = evnt.clientX;
-    cursorY = evnt.clientY;
-    moved = true;
-    var dist = Math.abs(cursorX - startX) + Math.abs(cursorY - startY);
-    if (dist > threshold) tapping = false;
-  }
-
-  function zoom(scale) {
-    zscale *= scale;
-    zoomed = true;
-    tapping = false;
-  }
-
-  function endTouch() {
-    if (touchStarted) {
-      // Ending a new touch? Just ignore both // TODO: is this a good idea?
-      touchStarted = false;
-      touchEnded = false;
-    } else {
-      touchEnded = true;
-    }
-    tapped = tapping;
-    tapping = false;
-  }
-
-  function reset() {
-    touchStarted = false;
-    zoomStarted  = false;
-    moved  = false;
-    zoomed = false;
-    touchEnded = false;
-    // NOTE: we do NOT reset tapping... this could carry over to next check
-    tapped = false;
-    zscale = 1.0;
-  }
-}
-
-// Add event listeners to update the state of a cursor object
-// Input div is an HTML element on which events will be registered
-function initTouch(div) {
-  const cursor = initCursor();
-
-  // Remember the distance between two pointers
-  var lastDistance = 1.0;
-
-  // Capture the drag event so we can disable any default actions
-  div.addEventListener("dragstart", function(drag) {
-    drag.preventDefault();
-    return false;
-  }, false);
-
-  // Add mouse events
-  div.addEventListener("mousedown",   cursor.startTouch, false);
-  div.addEventListener("mousemove",   cursor.move,       false);
-  div.addEventListener("mouseup",     cursor.endTouch,   false);
-  div.addEventListener("mouseleave",  cursor.endTouch,   false);
-  div.addEventListener("wheel",       wheelZoom,         false);
-
-  // Add touch events
-  div.addEventListener("touchstart",  initTouch,       false);
-  div.addEventListener("touchmove",   moveTouch,       false);
-  div.addEventListener("touchend",    cursor.endTouch, false);
-  div.addEventListener("touchcancel", cursor.endTouch, false);
-
-  // Return a pointer to the cursor object
-  return cursor;
-
-  function initTouch(evnt) {
-    const { preventDefault, touches } = evnt;
-    preventDefault();
-    switch (touches.length) {
-      case 1:
-        cursor.startTouch(touches[0]);
-        break;
-      case 2:
-        var midpoint = getMidPoint(touches[0], touches[1]);
-        cursor.startTouch(midpoint);
-        cursor.startZoom(midpoint);
-        // Initialize the starting distance between touches
-        lastDistance = midpoint.distance;
-        break;
-      default:
-        cursor.endTouch(evnt);
-    }
-  }
-
-  function moveTouch(evnt) {
-    const { preventDefault, touches } = evnt;
-    preventDefault();
-    // NOTE: MDN says to add the touchmove handler within the touchstart handler
-    // https://developer.mozilla.org/en-US/docs/Web/API/Touch_events/Using_Touch_Events
-    switch (touches.length) {
-      case 1:
-        cursor.move(touches[0]);
-        break;
-      case 2:
-        var midpoint = getMidPoint(touches[0], touches[1]);
-        // Move the cursor to the midpoint
-        cursor.move(midpoint);
-        // Zoom based on the change in distance between the two touches
-        cursor.zoom(lastDistance / midpoint.distance);
-        // Remember the new touch distance
-        lastDistance = midpoint.distance;
-        break;
-      default:
-        return false;
-    }
-  }
-
-  // Convert a two-touch event to a single event at the midpoint
-  function getMidPoint(p0, p1) {
-    var dx = p1.clientX - p0.clientX;
-    var dy = p1.clientY - p0.clientY;
-    return {
-      clientX: p0.clientX + dx / 2,
-      clientY: p0.clientY + dy / 2,
-      distance: Math.sqrt(dx * dx + dy * dy),
-    };
-  }
-
-  function wheelZoom(turn) {
-    turn.preventDefault();
-    cursor.startZoom(turn);
-    // We ignore the dY from the browser, since it may be arbitrarily scaled
-    // based on screen resolution or other factors. We keep only the sign.
-    // See https://github.com/Leaflet/Leaflet/issues/4538
-    var zoomScale = 1.0 + 0.2 * Math.sign(turn.deltaY);
-    cursor.zoom(zoomScale);
-  }
-}
-
 /**
  * Common utilities
  * @module glMatrix
@@ -726,6 +528,255 @@ function initEllipsoid() {
     shootEllipsoid(horizon, camera, dRay);
 
     return true;
+  }
+}
+
+function setParams(params) {
+  const { PI } = Math;
+  const degrees = 180.0 / PI;
+
+  // TODO: Get user-supplied semiMinor & semiMajor axes?
+  const ellipsoid = initEllipsoid();
+
+  const {
+    display,
+    units = "degrees",
+    center = [0.0, 0.0],
+    altitude = 4.0 * ellipsoid.meanRadius(),
+  } = params;
+
+  if (!(display instanceof Element)) fail("missing display element");
+
+  if (!["degrees", "radians"].includes(units)) fail("invalid units");
+
+  // Center must be a valid coordinate in the given units
+  if (!checkCoords(center, 2)) fail("invalid center array");
+  const [cx, cy] = (units === "degrees")
+    ? center.slice(0, 2).map(c => c / degrees)
+    : center;
+  if (cx < -PI || cx > PI || cy < -PI / 2 || cy > PI / 2) {
+    fail("center coordinates out of range");
+  }
+
+  // Altitude must be a Number, positive and not too big
+  if (!Number.isFinite(altitude)) fail("altitude must be a number");
+  if (altitude < 0) fail("altitude out of range");
+
+  return {
+    ellipsoid, display, units,
+    initialPosition: [cx, cy, altitude],
+    // view object computes ray parameters at points on the display
+    view: initView(display, 25.0),
+  };
+}
+
+function checkCoords(p, n) {
+  const isArray = Array.isArray(p) ||
+    (ArrayBuffer.isView(p) && !(p instanceof DataView));
+  return isArray && p.length >= n &&
+    p.slice(0, n).every(Number.isFinite);
+}
+
+function fail(message) {
+  // TODO: Should some errors be RangeErrors or TypeErrors instead?
+  throw Error("spinning-ball: " + message);
+}
+
+function initCursor() {
+  // What does an animation need to know about the cursor at each frame?
+  // First, whether the user did any of the following since the last frame:
+  //  - Started new actions
+  var touchStarted = false; // Touched or clicked the element
+  var zoomStarted  = false; // Rotated mousewheel, or started two-finger touch
+  //  - Changed something
+  var moved  = false;       // Moved mouse or touch point
+  var zoomed = false;       // Rotated mousewheel, or adjusted two-finger touch
+  //  - Is potentially in the middle of something
+  var tapping = false;      // No touchEnd, and no cursor motion
+  //  - Ended actions
+  var touchEnded = false;   // mouseup or touchend/cancel/leave
+  var tapped = false;       // Completed a click or tap action
+
+  // We also need to know the current cursor position and zoom scale
+  var cursorX = 0;
+  var cursorY = 0;
+  var zscale = 1.0;
+
+  // For tap/click reporting, we need to remember where the touch started
+  var startX = 0;
+  var startY = 0;
+  // What is a click/tap and what is a drag? If the cursor moved more than
+  // this threshold between touchStart and touchEnd, it is a drag
+  const threshold = 6;
+
+  return {
+    // Methods to report local state. Return a copy to protect local values
+    touchStarted: () => touchStarted,
+    zoomStarted: () => zoomStarted,
+    moved: () => moved,
+    zoomed: () => zoomed,
+    tapped: () => tapped,
+    touchEnded: () => touchEnded,
+    hasChanged: () => (moved || zoomed || tapped),
+    zscale: () => zscale,
+    x: () => cursorX,
+    y: () => cursorY,
+
+    // Methods to update local state
+    startTouch,
+    startZoom,
+    move,
+    zoom,
+    endTouch,
+    reset,
+  };
+
+  function startTouch(evnt) {
+    cursorX = evnt.clientX;
+    cursorY = evnt.clientY;
+    touchStarted = true;
+    startX = cursorX;
+    startY = cursorY;
+    tapping = true;
+  }
+
+  function startZoom(evnt) {
+    // Store the cursor position
+    cursorX = evnt.clientX;
+    cursorY = evnt.clientY;
+    zoomStarted = true;
+    tapping = false;
+  }
+
+  function move(evnt) {
+    cursorX = evnt.clientX;
+    cursorY = evnt.clientY;
+    moved = true;
+    var dist = Math.abs(cursorX - startX) + Math.abs(cursorY - startY);
+    if (dist > threshold) tapping = false;
+  }
+
+  function zoom(scale) {
+    zscale *= scale;
+    zoomed = true;
+    tapping = false;
+  }
+
+  function endTouch() {
+    if (touchStarted) {
+      // Ending a new touch? Just ignore both // TODO: is this a good idea?
+      touchStarted = false;
+      touchEnded = false;
+    } else {
+      touchEnded = true;
+    }
+    tapped = tapping;
+    tapping = false;
+  }
+
+  function reset() {
+    touchStarted = false;
+    zoomStarted  = false;
+    moved  = false;
+    zoomed = false;
+    touchEnded = false;
+    // NOTE: we do NOT reset tapping... this could carry over to next check
+    tapped = false;
+    zscale = 1.0;
+  }
+}
+
+// Add event listeners to update the state of a cursor object
+// Input div is an HTML element on which events will be registered
+function initTouch(div) {
+  const cursor = initCursor();
+
+  // Remember the distance between two pointers
+  var lastDistance = 1.0;
+
+  // Capture the drag event so we can disable any default actions
+  div.addEventListener("dragstart", function(drag) {
+    drag.preventDefault();
+    return false;
+  }, false);
+
+  // Add mouse events
+  div.addEventListener("mousedown",   cursor.startTouch, false);
+  div.addEventListener("mousemove",   cursor.move,       false);
+  div.addEventListener("mouseup",     cursor.endTouch,   false);
+  div.addEventListener("mouseleave",  cursor.endTouch,   false);
+  div.addEventListener("wheel",       wheelZoom,         false);
+
+  // Add touch events
+  div.addEventListener("touchstart",  initTouch,       false);
+  div.addEventListener("touchmove",   moveTouch,       false);
+  div.addEventListener("touchend",    cursor.endTouch, false);
+  div.addEventListener("touchcancel", cursor.endTouch, false);
+
+  // Return a pointer to the cursor object
+  return cursor;
+
+  function initTouch(evnt) {
+    const { preventDefault, touches } = evnt;
+    preventDefault();
+    switch (touches.length) {
+      case 1:
+        cursor.startTouch(touches[0]);
+        break;
+      case 2:
+        var midpoint = getMidPoint(touches[0], touches[1]);
+        cursor.startTouch(midpoint);
+        cursor.startZoom(midpoint);
+        // Initialize the starting distance between touches
+        lastDistance = midpoint.distance;
+        break;
+      default:
+        cursor.endTouch(evnt);
+    }
+  }
+
+  function moveTouch(evnt) {
+    const { preventDefault, touches } = evnt;
+    preventDefault();
+    // NOTE: MDN says to add the touchmove handler within the touchstart handler
+    // https://developer.mozilla.org/en-US/docs/Web/API/Touch_events/Using_Touch_Events
+    switch (touches.length) {
+      case 1:
+        cursor.move(touches[0]);
+        break;
+      case 2:
+        var midpoint = getMidPoint(touches[0], touches[1]);
+        // Move the cursor to the midpoint
+        cursor.move(midpoint);
+        // Zoom based on the change in distance between the two touches
+        cursor.zoom(lastDistance / midpoint.distance);
+        // Remember the new touch distance
+        lastDistance = midpoint.distance;
+        break;
+      default:
+        return false;
+    }
+  }
+
+  // Convert a two-touch event to a single event at the midpoint
+  function getMidPoint(p0, p1) {
+    var dx = p1.clientX - p0.clientX;
+    var dy = p1.clientY - p0.clientY;
+    return {
+      clientX: p0.clientX + dx / 2,
+      clientY: p0.clientY + dy / 2,
+      distance: Math.sqrt(dx * dx + dy * dy),
+    };
+  }
+
+  function wheelZoom(turn) {
+    turn.preventDefault();
+    cursor.startZoom(turn);
+    // We ignore the dY from the browser, since it may be arbitrarily scaled
+    // based on screen resolution or other factors. We keep only the sign.
+    // See https://github.com/Leaflet/Leaflet/issues/4538
+    var zoomScale = 1.0 + 0.2 * Math.sign(turn.deltaY);
+    cursor.zoom(zoomScale);
   }
 }
 
@@ -1327,7 +1378,7 @@ function initProjector(ellipsoid, camPosition, camInverse, screen) {
   }
 }
 
-function initCameraDynamics(screen, ellipsoid, initialPosition) {
+function initCameraDynamics({ view, ellipsoid, initialPosition }) {
   // Position & velocity are computed in latitude & longitude in radians, and
   //   altitude defined by distance along surface normal, in the same length
   //   units as semiMajor and semiMinor in ellipsoid.js
@@ -1337,11 +1388,10 @@ function initCameraDynamics(screen, ellipsoid, initialPosition) {
   // Initialize ECEF position, rotation matrix, inverse, and update method
   const ecef = initECEF(ellipsoid, position);
 
-  // Keep track of the longitude/latitude of the edges of the screen
-  const edges = initEdgePoints(ellipsoid, ecef.position, ecef.rotation, screen);
+  // Keep track of the longitude/latitude of the edges of the display
+  const edges = initEdgePoints(ellipsoid, ecef.position, ecef.rotation, view);
   // Initialize transforms from ellipsoid to screen positions
-  const projector = initProjector(ellipsoid,
-    ecef.position, ecef.inverse, screen);
+  const projector = initProjector(ellipsoid, ecef.position, ecef.inverse, view);
 
   // Initialize some values and working arrays
   let time = 0.0;
@@ -1529,31 +1579,15 @@ function initCursor3d(getRayParams, ellipsoid, initialPosition) {
   }
 }
 
-const degrees = 180.0 / Math.PI;
-
-function init(display, center, altitude) {
-  // Input display is an HTML element where the ball will be represented
-  // Input center is a pointer to a 2-element array containing initial
-  // longitude and latitude for the camera
-  // Input altitude is a floating point value indicating initial altitude
+function init(userParams) {
+  const params = setParams(userParams);
+  const { ellipsoid, display, view } = params;
 
   // Add event handlers and position tracking to display element
   const cursor2d = initTouch(display);
-  // Add a view object to compute ray parameters at points on the display
-  const view = initView(display, 25.0);
-
-  // Initialize ellipsoid, and methods for computing positions relative to it
-  const ellipsoid = initEllipsoid();
 
   // Initialize camera dynamics: time, position, velocity, etc.
-  // First check and convert user parameters for initial position
-  const initialPos = (center && Array.isArray(center) && center.length === 2)
-    ? [center[0] / degrees, center[1] / degrees]
-    : [0.0, 0.0];
-  initialPos[2] = (altitude)
-    ? altitude
-    : 4.0 * ellipsoid.meanRadius();
-  const camera = initCameraDynamics(view, ellipsoid, initialPos);
+  const camera = initCameraDynamics(params);
 
   // Initialize interaction with the ellipsoid via the mouse and screen
   const cursor3d = initCursor3d(view.getRayParams, ellipsoid, camera.position);
