@@ -4,8 +4,10 @@ import * as d3 from 'd3-geo';
 import * as topojson from 'topojson-client';
 import * as spinningBall from "../../";
 
-const map50mURL = "https://cdn.jsdelivr.net/npm/world-atlas@1/world/50m.json";
-const map110mURL = "https://cdn.jsdelivr.net/npm/world-atlas@1/world/110m.json";
+// const map50mURL = "https://cdn.jsdelivr.net/npm/world-atlas@1/world/50m.json";
+// const map110mURL = "https://cdn.jsdelivr.net/npm/world-atlas@1/world/110m.json";
+const map50mURL = "./50m.json";
+const map110mURL = "./110m.json";
 
 const center = [-95.3656049, 29.7537002]; // Longitude, latitude (degrees)
 const altitude = 11000;
@@ -17,8 +19,8 @@ export function main() {
 
   const canvas = document.getElementById("globeCanvas");
   resizeCanvasToDisplaySize(canvas);
-  var numPixelsX = canvas.clientWidth;
-  var numPixelsY = canvas.clientHeight;
+  let numPixelsX = canvas.clientWidth;
+  let numPixelsY = canvas.clientHeight;
   const context = canvas.getContext("2d");
   // Save default styles
   context.save();
@@ -36,11 +38,11 @@ export function main() {
   const horizon = {type: "Sphere"};
 
   // Get map data, start animation when ready
-  var land110m, land50m, requestID, hiRes = false;
-  var ready110m = fetch(map110mURL)
+  let land110m, land50m, requestID, hiRes = false;
+  const ready110m = fetch(map110mURL)
     .then( response => response.json() )
     .then( world => land110m = topojson.feature(world, world.objects.land) );
-  var ready50m = fetch(map50mURL)
+  const ready50m = fetch(map50mURL)
     .then( response => response.json() )
     .then( world => land50m = topojson.feature(world, world.objects.land) );
 

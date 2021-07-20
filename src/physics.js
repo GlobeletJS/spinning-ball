@@ -36,16 +36,12 @@ export function initCameraDynamics({ view, ellipsoid, initialPosition }) {
     lonLatToScreenXY: projector.lonLatToScreenXY,
 
     update,
-    stopCoast,
+    stopCoast: () => velocity.fill(0.0, 0, 2),
     stopZoom,
   };
 
-  function stopCoast() {
-    velocity[0] = 0.0;
-    velocity[1] = 0.0;
-  }
   function stopZoom() {
-    velocity[2] = 0.0;
+    velocity.fill(0.0, 2);
   }
 
   function update(newTime, resized, cursor3d) {
@@ -57,13 +53,13 @@ export function initCameraDynamics({ view, ellipsoid, initialPosition }) {
     if (deltaTime > 0.25) return resized;
 
     let needToRender;
-    if ( cursor3d.isClicked() ) {       // Rotate globe based on cursor drag
-      rotate( position, velocity, cursor3d, deltaTime );
+    if (cursor3d.isClicked()) { // Rotate globe based on cursor drag
+      rotate(position, velocity, cursor3d, deltaTime);
       needToRender = true;
-    } else {                           // Let globe spin freely
+    } else {                    // Let globe spin freely
       needToRender = coast( position, velocity, deltaTime );
     }
-    if ( cursor3d.isZooming() ) {       // Update zoom
+    if (cursor3d.isZooming()) { // Update zoom
       // Update ECEF position and rotation/inverse matrices
       ecef.update(position);
       // Update 2D screen position of 3D zoom position

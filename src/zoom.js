@@ -1,18 +1,15 @@
 import * as vec3 from "gl-matrix/vec3";
 import { updateOscillator } from "./oscillator.js";
 
-const { abs, sqrt, asin, atan2, cos, min, max, PI } = Math;
-
 export function initZoom(ellipsoid) {
   // Update camera altitude based on target set by mouse wheel events
   //  or two-finger pinch movements
+
   const w0 = 14.14; // Natural frequency of oscillator
   const minVelocity = 0.001;
-  const maxRotation = 0.15;
 
   // NOTE: everything below ASSUMES mass = 1
   const minEnergy = 0.5 * minVelocity * minVelocity;
-  let extension, kineticE, potentialE;
   const dPos = new Float64Array(3);
 
   return function(position, velocity, cursor3d, deltaTime, track) {
@@ -35,7 +32,7 @@ export function initZoom(ellipsoid) {
       dragonflyStalk(dPos, cursor3d.zoomRay, cursor3d.zoomPosition, ellipsoid);
       // Restrict size of rotation in one time step
       vec3.subtract(dPos, dPos, position);
-      limited = limitRotation(dPos, maxRotation);
+      limited = limitRotation(dPos);
       vec3.add(position, position, dPos);
     }
 
@@ -47,33 +44,32 @@ export function initZoom(ellipsoid) {
     if (cursor3d.isClicked() || limited) return;
 
     // Stop if we are already near steady state
-    kineticE = 0.5 * velocity[2] ** 2;
-    extension = position[2] - targetHeight;
-    potentialE = 0.5 * (w0 * extension) ** 2;
+    const kineticE = 0.5 * velocity[2] ** 2;
+    const extension = position[2] - targetHeight;
+    const potentialE = 0.5 * (w0 * extension) ** 2;
     if (kineticE + potentialE < minEnergy * targetHeight) {
-      targetHeight = position[2];
+      targetHeight = position[2]; // TODO: unnecessary?
       velocity[2] = 0.0;
       cursor3d.stopZoom();
     }
-    return;
   };
 }
 
-function limitRotation(dPos, maxRotation) {
+function limitRotation(dPos) {
   // Input dPos is a pointer to a 2-element array containing lon, lat changes
-  // maxRotation is a primitive floating point value
+  const { abs, min, max, PI } = Math;
+  const maxRotation = 0.15;
 
   // Check for longitude value crossing antimeridian
   if (dPos[0] >  PI) dPos[0] -= 2.0 * PI;
   if (dPos[0] < -PI) dPos[0] += 2.0 * PI;
 
-  if (abs(dPos[0]) > maxRotation) {
-    const tmp = min(max(-maxRotation, dPos[0]), maxRotation) / dPos[0];
-    dPos[0] *= tmp;
-    dPos[1] *= tmp;
-    return true;
-  }
-  return false;
+  if (abs(dPos[0]) < maxRotation) return false;
+
+  const tmp = min(max(-maxRotation, dPos[0]), maxRotation) / dPos[0];
+  dPos[0] *= tmp;
+  dPos[1] *= tmp;
+  return true;
 }
 
 // Given a 3D scene coordinate over which a zoom action was initiated,
@@ -83,6 +79,7 @@ function limitRotation(dPos, maxRotation) {
 // https://en.wikipedia.org/wiki/Dragonfly#Motion_camouflage
 // TODO: Clean this up. Just use difference of lat/lon under ray?
 function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
+  const { abs, sqrt, asin, cos, atan2 } = Math;
   // Output outRotation is a pointer to a vec3
   // Input ray is a pointer to a vec3
   // Input scenePos is a pointer to a 3D cursor object
@@ -101,8 +98,8 @@ function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
   if (sceneR < abs(target[0])) return;
   const targetRotY = asin( target[0] / sceneR );
   outRotation[0] =
-    atan2( scenePos[0], scenePos[2] ) - // Y-angle of scene vector
-    // asin( target[0] / sceneR );       // Y-angle of target point
+    atan2(scenePos[0], scenePos[2]) - // Y-angle of scene vector
+    // asin( target[0] / sceneR );    // Y-angle of target point
     targetRotY;
 
   // We now know the x and y coordinates of the scene vector after rotation
@@ -114,8 +111,6 @@ function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
   // point into the target y = target[1] plane
   // Assumes 0 angle is aligned along Z, and angle > 0 is rotation toward -y !
   outRotation[1] =
-    atan2( -1 * target[1], target[2] ) -  // X-angle of target point
-    atan2( -1 * scenePos[1], zRotated );  // X-angle of scene vector
-
-  return;
+    atan2(-1 * target[1], target[2]) -  // X-angle of target point
+    atan2(-1 * scenePos[1], zRotated);  // X-angle of scene vector
 }

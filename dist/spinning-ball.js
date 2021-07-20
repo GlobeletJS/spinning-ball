@@ -553,25 +553,25 @@ function initCursor() {
   // What does an animation need to know about the cursor at each frame?
   // First, whether the user did any of the following since the last frame:
   //  - Started new actions
-  var touchStarted = false; // Touched or clicked the element
-  var zoomStarted  = false; // Rotated mousewheel, or started two-finger touch
+  let touchStarted = false; // Touched or clicked the element
+  let zoomStarted  = false; // Rotated mousewheel, or started two-finger touch
   //  - Changed something
-  var moved  = false;       // Moved mouse or touch point
-  var zoomed = false;       // Rotated mousewheel, or adjusted two-finger touch
+  let moved  = false;       // Moved mouse or touch point
+  let zoomed = false;       // Rotated mousewheel, or adjusted two-finger touch
   //  - Is potentially in the middle of something
-  var tapping = false;      // No touchEnd, and no cursor motion
+  let tapping = false;      // No touchEnd, and no cursor motion
   //  - Ended actions
-  var touchEnded = false;   // mouseup or touchend/cancel/leave
-  var tapped = false;       // Completed a click or tap action
+  let touchEnded = false;   // mouseup or touchend/cancel/leave
+  let tapped = false;       // Completed a click or tap action
 
   // We also need to know the current cursor position and zoom scale
-  var cursorX = 0;
-  var cursorY = 0;
-  var zscale = 1.0;
+  let cursorX = 0;
+  let cursorY = 0;
+  let zscale = 1.0;
 
   // For tap/click reporting, we need to remember where the touch started
-  var startX = 0;
-  var startY = 0;
+  let startX = 0;
+  let startY = 0;
   // What is a click/tap and what is a drag? If the cursor moved more than
   // this threshold between touchStart and touchEnd, it is a drag
   const threshold = 6;
@@ -619,7 +619,7 @@ function initCursor() {
     cursorX = evnt.clientX;
     cursorY = evnt.clientY;
     moved = true;
-    var dist = Math.abs(cursorX - startX) + Math.abs(cursorY - startY);
+    const dist = Math.abs(cursorX - startX) + Math.abs(cursorY - startY);
     if (dist > threshold) tapping = false;
   }
 
@@ -653,19 +653,15 @@ function initCursor() {
   }
 }
 
-// Add event listeners to update the state of a cursor object
-// Input div is an HTML element on which events will be registered
 function initTouch(div) {
+  // Add event listeners to update the state of a cursor object
+  // Input div is an HTML element on which events will be registered
   const cursor = initCursor();
 
   // Remember the distance between two pointers
-  var lastDistance = 1.0;
+  let lastDistance = 1.0;
 
-  // Capture the drag event so we can disable any default actions
-  div.addEventListener("dragstart", function(drag) {
-    drag.preventDefault();
-    return false;
-  }, false);
+  div.addEventListener("dragstart", d => d.preventDefault(), false);
 
   // Add mouse events
   div.addEventListener("mousedown",   cursor.startTouch, false);
@@ -680,39 +676,39 @@ function initTouch(div) {
   div.addEventListener("touchend",    cursor.endTouch, false);
   div.addEventListener("touchcancel", cursor.endTouch, false);
 
-  // Return a pointer to the cursor object
   return cursor;
 
   function initTouch(evnt) {
-    const { preventDefault, touches } = evnt;
-    preventDefault();
+    const { touches } = evnt;
+    evnt.preventDefault();
     switch (touches.length) {
       case 1:
         cursor.startTouch(touches[0]);
         break;
-      case 2:
-        var midpoint = getMidPoint(touches[0], touches[1]);
+      case 2: {
+        const midpoint = getMidPoint(touches[0], touches[1]);
         cursor.startTouch(midpoint);
         cursor.startZoom(midpoint);
         // Initialize the starting distance between touches
         lastDistance = midpoint.distance;
         break;
+      }
       default:
         cursor.endTouch(evnt);
     }
   }
 
   function moveTouch(evnt) {
-    const { preventDefault, touches } = evnt;
-    preventDefault();
+    const { touches } = evnt;
+    evnt.preventDefault();
     // NOTE: MDN says to add the touchmove handler within the touchstart handler
     // https://developer.mozilla.org/en-US/docs/Web/API/Touch_events/Using_Touch_Events
     switch (touches.length) {
       case 1:
         cursor.move(touches[0]);
         break;
-      case 2:
-        var midpoint = getMidPoint(touches[0], touches[1]);
+      case 2: {
+        const midpoint = getMidPoint(touches[0], touches[1]);
         // Move the cursor to the midpoint
         cursor.move(midpoint);
         // Zoom based on the change in distance between the two touches
@@ -720,6 +716,7 @@ function initTouch(div) {
         // Remember the new touch distance
         lastDistance = midpoint.distance;
         break;
+      }
       default:
         return false;
     }
@@ -727,12 +724,12 @@ function initTouch(div) {
 
   // Convert a two-touch event to a single event at the midpoint
   function getMidPoint(p0, p1) {
-    var dx = p1.clientX - p0.clientX;
-    var dy = p1.clientY - p0.clientY;
+    const dx = p1.clientX - p0.clientX;
+    const dy = p1.clientY - p0.clientY;
     return {
       clientX: p0.clientX + dx / 2,
       clientY: p0.clientY + dy / 2,
-      distance: Math.sqrt(dx * dx + dy * dy),
+      distance: Math.hypot(dx, dy),
     };
   }
 
@@ -742,7 +739,7 @@ function initTouch(div) {
     // We ignore the dY from the browser, since it may be arbitrarily scaled
     // based on screen resolution or other factors. We keep only the sign.
     // See https://github.com/Leaflet/Leaflet/issues/4538
-    var zoomScale = 1.0 + 0.2 * Math.sign(turn.deltaY);
+    const zoomScale = 1.0 + 0.2 * Math.sign(turn.deltaY);
     cursor.zoom(zoomScale);
   }
 }
@@ -975,18 +972,15 @@ function updateOscillator(pos, vel, ext, w0, dt, i1, i2) {
   return;
 }
 
-const { abs, sqrt, asin, atan2, cos, min, max, PI } = Math;
-
 function initZoom(ellipsoid) {
   // Update camera altitude based on target set by mouse wheel events
   //  or two-finger pinch movements
+
   const w0 = 14.14; // Natural frequency of oscillator
   const minVelocity = 0.001;
-  const maxRotation = 0.15;
 
   // NOTE: everything below ASSUMES mass = 1
   const minEnergy = 0.5 * minVelocity * minVelocity;
-  let extension, kineticE, potentialE;
   const dPos = new Float64Array(3);
 
   return function(position, velocity, cursor3d, deltaTime, track) {
@@ -1009,7 +1003,7 @@ function initZoom(ellipsoid) {
       dragonflyStalk(dPos, cursor3d.zoomRay, cursor3d.zoomPosition, ellipsoid);
       // Restrict size of rotation in one time step
       subtract(dPos, dPos, position);
-      limited = limitRotation(dPos, maxRotation);
+      limited = limitRotation(dPos);
       add(position, position, dPos);
     }
 
@@ -1021,33 +1015,32 @@ function initZoom(ellipsoid) {
     if (cursor3d.isClicked() || limited) return;
 
     // Stop if we are already near steady state
-    kineticE = 0.5 * velocity[2] ** 2;
-    extension = position[2] - targetHeight;
-    potentialE = 0.5 * (w0 * extension) ** 2;
+    const kineticE = 0.5 * velocity[2] ** 2;
+    const extension = position[2] - targetHeight;
+    const potentialE = 0.5 * (w0 * extension) ** 2;
     if (kineticE + potentialE < minEnergy * targetHeight) {
-      targetHeight = position[2];
+      targetHeight = position[2]; // TODO: unnecessary?
       velocity[2] = 0.0;
       cursor3d.stopZoom();
     }
-    return;
   };
 }
 
-function limitRotation(dPos, maxRotation) {
+function limitRotation(dPos) {
   // Input dPos is a pointer to a 2-element array containing lon, lat changes
-  // maxRotation is a primitive floating point value
+  const { abs, min, max, PI } = Math;
+  const maxRotation = 0.15;
 
   // Check for longitude value crossing antimeridian
   if (dPos[0] >  PI) dPos[0] -= 2.0 * PI;
   if (dPos[0] < -PI) dPos[0] += 2.0 * PI;
 
-  if (abs(dPos[0]) > maxRotation) {
-    const tmp = min(max(-maxRotation, dPos[0]), maxRotation) / dPos[0];
-    dPos[0] *= tmp;
-    dPos[1] *= tmp;
-    return true;
-  }
-  return false;
+  if (abs(dPos[0]) < maxRotation) return false;
+
+  const tmp = min(max(-maxRotation, dPos[0]), maxRotation) / dPos[0];
+  dPos[0] *= tmp;
+  dPos[1] *= tmp;
+  return true;
 }
 
 // Given a 3D scene coordinate over which a zoom action was initiated,
@@ -1057,6 +1050,7 @@ function limitRotation(dPos, maxRotation) {
 // https://en.wikipedia.org/wiki/Dragonfly#Motion_camouflage
 // TODO: Clean this up. Just use difference of lat/lon under ray?
 function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
+  const { abs, sqrt, asin, cos, atan2 } = Math;
   // Output outRotation is a pointer to a vec3
   // Input ray is a pointer to a vec3
   // Input scenePos is a pointer to a 3D cursor object
@@ -1075,8 +1069,8 @@ function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
   if (sceneR < abs(target[0])) return;
   const targetRotY = asin( target[0] / sceneR );
   outRotation[0] =
-    atan2( scenePos[0], scenePos[2] ) - // Y-angle of scene vector
-    // asin( target[0] / sceneR );       // Y-angle of target point
+    atan2(scenePos[0], scenePos[2]) - // Y-angle of scene vector
+    // asin( target[0] / sceneR );    // Y-angle of target point
     targetRotY;
 
   // We now know the x and y coordinates of the scene vector after rotation
@@ -1088,10 +1082,8 @@ function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
   // point into the target y = target[1] plane
   // Assumes 0 angle is aligned along Z, and angle > 0 is rotation toward -y !
   outRotation[1] =
-    atan2( -1 * target[1], target[2] ) -  // X-angle of target point
-    atan2( -1 * scenePos[1], zRotated );  // X-angle of scene vector
-
-  return;
+    atan2(-1 * target[1], target[2]) -  // X-angle of target point
+    atan2(-1 * scenePos[1], zRotated);  // X-angle of scene vector
 }
 
 function initRotation( ellipsoid ) {
@@ -1224,16 +1216,12 @@ function initCameraDynamics({ view, ellipsoid, initialPosition }) {
     lonLatToScreenXY: projector.lonLatToScreenXY,
 
     update,
-    stopCoast,
+    stopCoast: () => velocity.fill(0.0, 0, 2),
     stopZoom,
   };
 
-  function stopCoast() {
-    velocity[0] = 0.0;
-    velocity[1] = 0.0;
-  }
   function stopZoom() {
-    velocity[2] = 0.0;
+    velocity.fill(0.0, 2);
   }
 
   function update(newTime, resized, cursor3d) {
@@ -1245,13 +1233,13 @@ function initCameraDynamics({ view, ellipsoid, initialPosition }) {
     if (deltaTime > 0.25) return resized;
 
     let needToRender;
-    if ( cursor3d.isClicked() ) {       // Rotate globe based on cursor drag
-      rotate( position, velocity, cursor3d, deltaTime );
+    if (cursor3d.isClicked()) { // Rotate globe based on cursor drag
+      rotate(position, velocity, cursor3d, deltaTime);
       needToRender = true;
-    } else {                           // Let globe spin freely
+    } else {                    // Let globe spin freely
       needToRender = coast( position, velocity, deltaTime );
     }
-    if ( cursor3d.isZooming() ) {       // Update zoom
+    if (cursor3d.isZooming()) { // Update zoom
       // Update ECEF position and rotation/inverse matrices
       ecef.update(position);
       // Update 2D screen position of 3D zoom position
