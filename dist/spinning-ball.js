@@ -120,22 +120,6 @@ function length(a) {
   return Math.hypot(x, y, z);
 }
 /**
- * Set the components of a vec3 to the given values
- *
- * @param {vec3} out the receiving vector
- * @param {Number} x X component
- * @param {Number} y Y component
- * @param {Number} z Z component
- * @returns {vec3} out
- */
-
-function set(out, x, y, z) {
-  out[0] = x;
-  out[1] = y;
-  out[2] = z;
-  return out;
-}
-/**
  * Adds two vec3's
  *
  * @param {vec3} out the receiving vector
@@ -938,18 +922,18 @@ function initECEF(ellipsoid, initialPos) {
 
     // Compute ECEF coordinates. NOTE WebGL coordinate convention:
     // +x to right, +y to top of screen, and +z into the screen
-    ellipsoid.geodetic2ecef( position, geodetic );
+    ellipsoid.geodetic2ecef(position, geodetic);
 
     // Rotation: y first, so it will be left of x operator in final matrix
     // (gl-matrix library 'post-multplies' by each new matrix)
     // Positive angles about Y are towards the +X axis, or East longitude.
-    fromYRotation( rotation, geodetic[0] );
+    fromYRotation(rotation, geodetic[0]);
     // Positive angles about X are towards the -Y axis!
     // (from Y to Z, and Z to -Y). But geodetic[1] is a latitude, toward N
-    rotateX( rotation, rotation, -geodetic[1] );
+    rotateX(rotation, rotation, -geodetic[1]);
 
     // The inverse of a rotation matrix is its transpose
-    transpose( inverse, rotation );
+    transpose(inverse, rotation);
   }
 }
 
@@ -1050,27 +1034,26 @@ function limitRotation(dPos) {
 // https://en.wikipedia.org/wiki/Dragonfly#Motion_camouflage
 // TODO: Clean this up. Just use difference of lat/lon under ray?
 function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
-  const { abs, sqrt, asin, cos, atan2 } = Math;
-  // Output outRotation is a pointer to a vec3
-  // Input ray is a pointer to a vec3
-  // Input scenePos is a pointer to a 3D cursor object
+  const { abs, hypot, asin, cos, atan2 } = Math;
+
+  const [sceneX, sceneY, sceneZ] = scenePos;
 
   // Find the ray-sphere intersection in unrotated model space coordinates
   const target = new Float64Array(3);
-  const unrotatedCamPos = [0.0, 0.0, outRotation[2] + length(scenePos)];
+  const unrotatedCamPos = [0.0, 0.0, outRotation[2] + hypot(...scenePos)];
   const onEllipse = ellipsoid.shoot(target, unrotatedCamPos, ray);
   if (!onEllipse) return; // No intersection!
 
   // Find the rotation about the y-axis required to bring scene point into
   // the  x = target[0]  plane
   // First find distance of scene point from scene y-axis
-  const sceneR = sqrt(scenePos[0] ** 2 + scenePos[2] ** 2);
+  const sceneR = hypot(sceneX, sceneZ);
   // If too short, exit rather than tipping poles out of y-z plane
   if (sceneR < abs(target[0])) return;
-  const targetRotY = asin( target[0] / sceneR );
+  const targetRotY = asin(target[0] / sceneR); // Y-angle of target point
   outRotation[0] =
-    atan2(scenePos[0], scenePos[2]) - // Y-angle of scene vector
-    // asin( target[0] / sceneR );    // Y-angle of target point
+    atan2(sceneX, sceneZ) -     // Y-angle of scene vector
+    // asin( target[0] / sceneR ); // Y-angle of target point
     targetRotY;
 
   // We now know the x and y coordinates of the scene vector after rotation
@@ -1082,11 +1065,11 @@ function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
   // point into the target y = target[1] plane
   // Assumes 0 angle is aligned along Z, and angle > 0 is rotation toward -y !
   outRotation[1] =
-    atan2(-1 * target[1], target[2]) -  // X-angle of target point
-    atan2(-1 * scenePos[1], zRotated);  // X-angle of scene vector
+    atan2(-1 * target[1], target[2]) - // X-angle of target point
+    atan2(-1 * sceneY, zRotated);      // X-angle of scene vector
 }
 
-function initRotation( ellipsoid ) {
+function initRotation(ellipsoid) {
   // Update rotations and rotation velocities based on forces applied
   // via a mouse click & drag event
   const w0 = 40.0;
@@ -1108,11 +1091,11 @@ function initRotation( ellipsoid ) {
     extension[2] = 0.0;
 
     updateOscillator(position, velocity, extension, w0, deltaTime, 0, 1);
-    return;
+    return true;   // Position changed, need to re-render
   };
 }
 
-function initCoast( ellipsoid ) {
+function initCoast(ellipsoid) {
   // Update rotations based on a freely spinning globe (no forces)
   const damping = 3.0;
   const radius = ellipsoid.meanRadius();
@@ -1123,20 +1106,18 @@ function initCoast( ellipsoid ) {
     // Input deltaTime is a primitive value (floating point)
     // TODO: switch to exact formula? (not finite difference)
 
-    if ( length(velocity) < minSpeed * position[2] / radius ) {
-      // Rotation has almost stopped. Go ahead and stop all the way.
-      set(velocity, 0.0, 0.0, 0.0);
+    if (length(velocity) < minSpeed * position[2] / radius) {
+      // Rotation has almost stopped. Go ahead and stop all the way
+      velocity.fill(0.0);
       return false; // No change to position, no need to re-render
     }
 
     // Adjust previous velocities for damping over the past time interval
     const dvDamp = -1.0 * damping * deltaTime;
-    // vec3.scaleAndAdd(velocity, velocity, velocity, dvDamp);
     velocity[0] += velocity[0] * dvDamp;
     velocity[1] += velocity[1] * dvDamp;
 
     // Update rotations
-    // vec3.scaleAndAdd(position, position, velocity, deltaTime);
     position[0] += velocity[0] * deltaTime;
     position[1] += velocity[1] * deltaTime;
     return true;    // Position changed, need to re-render
@@ -1224,21 +1205,17 @@ function initCameraDynamics({ view, ellipsoid, initialPosition }) {
     velocity.fill(0.0, 2);
   }
 
-  function update(newTime, resized, cursor3d) {
+  function update(newTime, cursor3d) {
     // Input time is a primitive floating point value
     // Input cursor3d is a pointer to an object
     const deltaTime = newTime - time;
     time = newTime;
     // If timestep too big, wait till next frame to update physics
-    if (deltaTime > 0.25) return resized;
+    if (deltaTime > 0.25) return false;
 
-    let needToRender;
-    if (cursor3d.isClicked()) { // Rotate globe based on cursor drag
-      rotate(position, velocity, cursor3d, deltaTime);
-      needToRender = true;
-    } else {                    // Let globe spin freely
-      needToRender = coast( position, velocity, deltaTime );
-    }
+    let needToRender = (cursor3d.isClicked())
+      ? rotate(position, velocity, cursor3d, deltaTime)
+      : coast(position, velocity, deltaTime);
     if (cursor3d.isZooming()) { // Update zoom
       // Update ECEF position and rotation/inverse matrices
       ecef.update(position);
@@ -1254,7 +1231,6 @@ function initCameraDynamics({ view, ellipsoid, initialPosition }) {
       needToRender = true;
     }
 
-    needToRender = needToRender || resized;
     if (needToRender) ecef.update(position);
     return needToRender;
   }
@@ -1506,7 +1482,7 @@ function init(userParams) {
     const resized = view.changed();
 
     // Update camera dynamics
-    camMoving = camera.update(time, resized, cursor3d);
+    camMoving = camera.update(time, cursor3d) || resized;
 
     // Update cursor positions, if necessary
     cursorChanged = cursor2d.hasChanged() || camMoving || cursor3d.wasTapped();

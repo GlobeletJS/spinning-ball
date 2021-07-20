@@ -79,27 +79,26 @@ function limitRotation(dPos) {
 // https://en.wikipedia.org/wiki/Dragonfly#Motion_camouflage
 // TODO: Clean this up. Just use difference of lat/lon under ray?
 function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
-  const { abs, sqrt, asin, cos, atan2 } = Math;
-  // Output outRotation is a pointer to a vec3
-  // Input ray is a pointer to a vec3
-  // Input scenePos is a pointer to a 3D cursor object
+  const { abs, hypot, asin, cos, atan2 } = Math;
+
+  const [sceneX, sceneY, sceneZ] = scenePos;
 
   // Find the ray-sphere intersection in unrotated model space coordinates
   const target = new Float64Array(3);
-  const unrotatedCamPos = [0.0, 0.0, outRotation[2] + vec3.length(scenePos)];
+  const unrotatedCamPos = [0.0, 0.0, outRotation[2] + hypot(...scenePos)];
   const onEllipse = ellipsoid.shoot(target, unrotatedCamPos, ray);
   if (!onEllipse) return; // No intersection!
 
   // Find the rotation about the y-axis required to bring scene point into
   // the  x = target[0]  plane
   // First find distance of scene point from scene y-axis
-  const sceneR = sqrt(scenePos[0] ** 2 + scenePos[2] ** 2);
+  const sceneR = hypot(sceneX, sceneZ);
   // If too short, exit rather than tipping poles out of y-z plane
   if (sceneR < abs(target[0])) return;
-  const targetRotY = asin( target[0] / sceneR );
+  const targetRotY = asin(target[0] / sceneR); // Y-angle of target point
   outRotation[0] =
-    atan2(scenePos[0], scenePos[2]) - // Y-angle of scene vector
-    // asin( target[0] / sceneR );    // Y-angle of target point
+    atan2(sceneX, sceneZ) -     // Y-angle of scene vector
+    // asin( target[0] / sceneR ); // Y-angle of target point
     targetRotY;
 
   // We now know the x and y coordinates of the scene vector after rotation
@@ -111,6 +110,6 @@ function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
   // point into the target y = target[1] plane
   // Assumes 0 angle is aligned along Z, and angle > 0 is rotation toward -y !
   outRotation[1] =
-    atan2(-1 * target[1], target[2]) -  // X-angle of target point
-    atan2(-1 * scenePos[1], zRotated);  // X-angle of scene vector
+    atan2(-1 * target[1], target[2]) - // X-angle of target point
+    atan2(-1 * sceneY, zRotated);      // X-angle of scene vector
 }

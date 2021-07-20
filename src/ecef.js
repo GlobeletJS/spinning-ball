@@ -30,17 +30,17 @@ export function initECEF(ellipsoid, initialPos) {
 
     // Compute ECEF coordinates. NOTE WebGL coordinate convention:
     // +x to right, +y to top of screen, and +z into the screen
-    ellipsoid.geodetic2ecef( position, geodetic );
+    ellipsoid.geodetic2ecef(position, geodetic);
 
     // Rotation: y first, so it will be left of x operator in final matrix
     // (gl-matrix library 'post-multplies' by each new matrix)
     // Positive angles about Y are towards the +X axis, or East longitude.
-    mat4.fromYRotation( rotation, geodetic[0] );
+    mat4.fromYRotation(rotation, geodetic[0]);
     // Positive angles about X are towards the -Y axis!
     // (from Y to Z, and Z to -Y). But geodetic[1] is a latitude, toward N
-    mat4.rotateX( rotation, rotation, -geodetic[1] );
+    mat4.rotateX(rotation, rotation, -geodetic[1]);
 
     // The inverse of a rotation matrix is its transpose
-    mat4.transpose( inverse, rotation );
+    mat4.transpose(inverse, rotation);
   }
 }

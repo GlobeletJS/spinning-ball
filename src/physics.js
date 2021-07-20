@@ -44,21 +44,17 @@ export function initCameraDynamics({ view, ellipsoid, initialPosition }) {
     velocity.fill(0.0, 2);
   }
 
-  function update(newTime, resized, cursor3d) {
+  function update(newTime, cursor3d) {
     // Input time is a primitive floating point value
     // Input cursor3d is a pointer to an object
     const deltaTime = newTime - time;
     time = newTime;
     // If timestep too big, wait till next frame to update physics
-    if (deltaTime > 0.25) return resized;
+    if (deltaTime > 0.25) return false;
 
-    let needToRender;
-    if (cursor3d.isClicked()) { // Rotate globe based on cursor drag
-      rotate(position, velocity, cursor3d, deltaTime);
-      needToRender = true;
-    } else {                    // Let globe spin freely
-      needToRender = coast( position, velocity, deltaTime );
-    }
+    let needToRender = (cursor3d.isClicked())
+      ? rotate(position, velocity, cursor3d, deltaTime)
+      : coast(position, velocity, deltaTime);
     if (cursor3d.isZooming()) { // Update zoom
       // Update ECEF position and rotation/inverse matrices
       ecef.update(position);
@@ -74,7 +70,6 @@ export function initCameraDynamics({ view, ellipsoid, initialPosition }) {
       needToRender = true;
     }
 
-    needToRender = needToRender || resized;
     if (needToRender) ecef.update(position);
     return needToRender;
   }

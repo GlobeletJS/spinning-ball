@@ -1,7 +1,7 @@
 import * as vec3 from "gl-matrix/vec3";
 import { updateOscillator } from "./oscillator.js";
 
-export function initRotation( ellipsoid ) {
+export function initRotation(ellipsoid) {
   // Update rotations and rotation velocities based on forces applied
   // via a mouse click & drag event
   const w0 = 40.0;
@@ -23,11 +23,11 @@ export function initRotation( ellipsoid ) {
     extension[2] = 0.0;
 
     updateOscillator(position, velocity, extension, w0, deltaTime, 0, 1);
-    return;
+    return true;   // Position changed, need to re-render
   };
 }
 
-export function initCoast( ellipsoid ) {
+export function initCoast(ellipsoid) {
   // Update rotations based on a freely spinning globe (no forces)
   const damping = 3.0;
   const radius = ellipsoid.meanRadius();
@@ -38,20 +38,18 @@ export function initCoast( ellipsoid ) {
     // Input deltaTime is a primitive value (floating point)
     // TODO: switch to exact formula? (not finite difference)
 
-    if ( vec3.length(velocity) < minSpeed * position[2] / radius ) {
-      // Rotation has almost stopped. Go ahead and stop all the way.
-      vec3.set(velocity, 0.0, 0.0, 0.0);
+    if (vec3.length(velocity) < minSpeed * position[2] / radius) {
+      // Rotation has almost stopped. Go ahead and stop all the way
+      velocity.fill(0.0);
       return false; // No change to position, no need to re-render
     }
 
     // Adjust previous velocities for damping over the past time interval
     const dvDamp = -1.0 * damping * deltaTime;
-    // vec3.scaleAndAdd(velocity, velocity, velocity, dvDamp);
     velocity[0] += velocity[0] * dvDamp;
     velocity[1] += velocity[1] * dvDamp;
 
     // Update rotations
-    // vec3.scaleAndAdd(position, position, velocity, deltaTime);
     position[0] += velocity[0] * deltaTime;
     position[1] += velocity[1] * deltaTime;
     return true;    // Position changed, need to re-render

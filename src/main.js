@@ -44,7 +44,7 @@ export function init(userParams) {
     const resized = view.changed();
 
     // Update camera dynamics
-    camMoving = camera.update(time, resized, cursor3d);
+    camMoving = camera.update(time, cursor3d) || resized;
 
     // Update cursor positions, if necessary
     cursorChanged = cursor2d.hasChanged() || camMoving || cursor3d.wasTapped();
