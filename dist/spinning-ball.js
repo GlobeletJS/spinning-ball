@@ -1002,7 +1002,9 @@ function limitRotation(dPos) {
   return true;
 }
 
-function initZoom(ellipsoid) {
+function initZoom(ellipsoid, cursor3d) {
+  const { zoomTarget, zoomPosition, zoomRay, stopZoom } = cursor3d;
+
   // Update camera altitude based on target set by mouse wheel events
   //  or two-finger pinch movements
   const w0 = 14.14; // Natural frequency of oscillator
@@ -1012,16 +1014,14 @@ function initZoom(ellipsoid) {
   const minEnergy = 0.5 * minVelocity * minVelocity;
   const dPos = new Float64Array(3);
 
-  return function(position, velocity, cursor3d, deltaTime, track) {
-    const { zoomTarget, zoomPosition, zoomRay, stopZoom } = cursor3d;
-
+  return function(position, velocity, deltaTime) {
     const oldAltitude = position[2];
     const targetHeight = zoomTarget();
 
     dPos[2] = position[2] - targetHeight;
     updateOscillator(position, velocity, dPos, w0, deltaTime, 2, 2);
 
-    const limited = (track)
+    const limited = (cursor3d.zoomFixed())
       ? dragonflyStalk(position, zoomPosition, zoomRay, ellipsoid)
       : false;
 
@@ -1043,24 +1043,25 @@ function initZoom(ellipsoid) {
   };
 }
 
-function initRotation(ellipsoid) {
+function initRotation(ellipsoid, cursor3d) {
   // Update rotations and rotation velocities based on forces applied
   // via a mouse click & drag event
   const w0 = 40.0;
   const extension = new Float64Array(3);
+  const { position: cursorPosition, clickPosition } = cursor3d;
 
-  return function(position, velocity, mouse3d, deltaTime) {
+  return function(position, velocity, deltaTime) {
     // Input mouse3d is a pointer to a mouse object
     // Inputs position, velocity are pointers to vec3s
     // Input deltaTime is a primitive floating point value
 
     // Find the displacement of the clicked position on the globe
     // from the current mouse position
-    subtract(extension, mouse3d.position, mouse3d.clickPosition);
+    subtract(extension, cursorPosition, clickPosition);
 
     // Convert to changes in longitude, latitude, and altitude
     ellipsoid.ecefToDeltaLonLatAlt(extension, extension,
-      mouse3d.clickPosition, position);
+      clickPosition, position);
     // Ignore altitude change for now
     extension[2] = 0.0;
 
@@ -1102,17 +1103,14 @@ function initProjector(ellipsoid, camPosition, camInverse, screen) {
   const rayVec = new Float64Array(3);
   const ecefTmp = new Float64Array(3);
 
-  return {
-    ecefToScreenRay,
-    lonLatToScreenXY,
-  };
+  return { ecefToScreenRay, lonLatToScreenXY };
 
   function lonLatToScreenXY(xy, lonLat) {
     ellipsoid.geodetic2ecef(ecefTmp, lonLat);
     const visible = ecefToScreenRay(rayVec, ecefTmp); // Overwrites rayVec!
 
-    xy[0] = screen.width() * ( 1 + rayVec[0] / screen.rightEdge() ) / 2;
-    xy[1] = screen.height() * ( 1 - rayVec[1] / screen.topEdge() ) / 2;
+    xy[0] = screen.width() * (1 + rayVec[0] / screen.rightEdge()) / 2;
+    xy[1] = screen.height() * (1 - rayVec[1] / screen.topEdge()) / 2;
     return visible;
   }
 
@@ -1124,7 +1122,7 @@ function initProjector(ellipsoid, camPosition, camInverse, screen) {
     subtract(rayVec, ecefPosition, camPosition);
     // rayVec now points from camera to ecef. The sign of the
     // dot product tells us whether it is beyond the horizon
-    const visible = ( dot(rayVec, ecefPosition) < 0 );
+    const visible = dot(rayVec, ecefPosition) < 0;
 
     // Rotate to camera orientation
     transformMat4$1(screenRay, rayVec, camInverse);
@@ -1138,7 +1136,9 @@ function initProjector(ellipsoid, camPosition, camInverse, screen) {
   }
 }
 
-function initCameraDynamics({ view, ellipsoid, initialPosition }) {
+function initCameraDynamics(params, cursor3d) {
+  const { view, ellipsoid, initialPosition } = params;
+
   // Position & velocity are computed in latitude & longitude in radians, and
   //   altitude defined by distance along surface normal, in the same length
   //   units as semiMajor and semiMinor in ellipsoid.js
@@ -1156,8 +1156,8 @@ function initCameraDynamics({ view, ellipsoid, initialPosition }) {
   const rayVec = new Float64Array(4);
 
   // Initialize values & update functions for translations & rotations
-  const zoom   = initZoom(ellipsoid);
-  const rotate = initRotation(ellipsoid);
+  const zoom   = initZoom(ellipsoid, cursor3d);
+  const rotate = initRotation(ellipsoid, cursor3d);
   const coast  = initCoast(ellipsoid);
 
   // Return methods to read/update state
@@ -1171,25 +1171,20 @@ function initCameraDynamics({ view, ellipsoid, initialPosition }) {
     lonLatToScreenXY: projector.lonLatToScreenXY,
 
     update,
-    stopCoast: () => velocity.fill(0.0, 0, 2),
     stopZoom,
+    stopCoast: () => velocity.fill(0.0, 0, 2),
   };
 
-  function stopZoom() {
-    velocity.fill(0.0, 2);
-  }
-
-  function update(newTime, cursor3d) {
-    // Input time is a primitive floating point value
-    // Input cursor3d is a pointer to an object
+  function update(newTime) {
     const deltaTime = newTime - time;
     time = newTime;
     // If timestep too big, wait till next frame to update physics
     if (deltaTime > 0.25) return false;
 
-    let needToRender = (cursor3d.isClicked())
-      ? rotate(position, velocity, cursor3d, deltaTime)
-      : coast(position, velocity, deltaTime);
+    const needToRender = (cursor3d.isClicked())
+      ? rotate(position, velocity, deltaTime)
+      : coast(position, velocity, deltaTime) || cursor3d.isZooming();
+
     if (cursor3d.isZooming()) { // Update zoom
       // Update ECEF position and rotation/inverse matrices
       ecef.update(position);
@@ -1197,16 +1192,19 @@ function initCameraDynamics({ view, ellipsoid, initialPosition }) {
       const visible = projector.ecefToScreenRay(rayVec, cursor3d.zoomPosition);
       if (visible) {
         if (cursor3d.isClicked()) cursor3d.zoomRay.set(rayVec);
-        zoom(position, velocity, cursor3d, deltaTime, cursor3d.zoomFixed());
+        zoom(position, velocity, deltaTime);
       } else {
         stopZoom(); // TODO: is this needed? Might want to keep coasting
         cursor3d.stopZoom();
       }
-      needToRender = true;
     }
 
     if (needToRender) ecef.update(position);
     return needToRender;
+  }
+
+  function stopZoom() {
+    velocity.fill(0.0, 2);
   }
 }
 
@@ -1318,8 +1316,7 @@ function initCursor3d(params) {
   let clicked = false;
   let zooming = false;
   let wasTapped = false;
-  // Whether to fix the screen position of the zoom
-  let zoomFix = false;
+  let zoomFix = false; // Whether to fix the screen position of the zoom
 
   // Track target altitude for zooming
   let targetHeight = initialPosition[2];
@@ -1328,7 +1325,6 @@ function initCursor3d(params) {
   // Local working vector
   const ecefRay = new Float64Array(4);
 
-  // Return methods to read/update cursorPosition
   return {
     // POINTERs to local arrays. WARNING: local vals can be changed outside!
     position: cursorPosition, // TODO: why make the name more ambiguous?
@@ -1337,8 +1333,7 @@ function initCursor3d(params) {
     zoomPosition,
     zoomRay,
 
-    // Methods to report local state.
-    // These protect the local value, since primitives are passed by value
+    // Methods to report local state
     isOnScene: () => onScene,
     isClicked: () => clicked,
     wasTapped: () => wasTapped,
@@ -1399,7 +1394,6 @@ function initCursor3d(params) {
     }
 
     cursor2d.reset();
-    return;
   }
 
   function stopZoom(height) {
@@ -1416,11 +1410,11 @@ function init(userParams) {
   // Add event handlers and position tracking to display element
   const cursor2d = initTouch(display);
 
-  // Initialize camera dynamics: time, position, velocity, etc.
-  const camera = initCameraDynamics(params);
-
   // Initialize interaction with the ellipsoid via the mouse and screen
   const cursor3d = initCursor3d(params);
+
+  // Initialize camera dynamics: time, position, velocity, etc.
+  const camera = initCameraDynamics(params, cursor3d);
 
   let camMoving, cursorChanged;
 

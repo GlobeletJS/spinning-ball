@@ -10,11 +10,11 @@ export function init(userParams) {
   // Add event handlers and position tracking to display element
   const cursor2d = initTouch(display);
 
-  // Initialize camera dynamics: time, position, velocity, etc.
-  const camera = initCameraDynamics(params);
-
   // Initialize interaction with the ellipsoid via the mouse and screen
   const cursor3d = initCursor3d(params);
+
+  // Initialize camera dynamics: time, position, velocity, etc.
+  const camera = initCameraDynamics(params, cursor3d);
 
   let camMoving, cursorChanged;
 

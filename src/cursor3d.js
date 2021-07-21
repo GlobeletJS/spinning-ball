@@ -17,8 +17,7 @@ export function initCursor3d(params) {
   let clicked = false;
   let zooming = false;
   let wasTapped = false;
-  // Whether to fix the screen position of the zoom
-  let zoomFix = false;
+  let zoomFix = false; // Whether to fix the screen position of the zoom
 
   // Track target altitude for zooming
   let targetHeight = initialPosition[2];
@@ -27,7 +26,6 @@ export function initCursor3d(params) {
   // Local working vector
   const ecefRay = new Float64Array(4);
 
-  // Return methods to read/update cursorPosition
   return {
     // POINTERs to local arrays. WARNING: local vals can be changed outside!
     position: cursorPosition, // TODO: why make the name more ambiguous?
@@ -36,8 +34,7 @@ export function initCursor3d(params) {
     zoomPosition,
     zoomRay,
 
-    // Methods to report local state.
-    // These protect the local value, since primitives are passed by value
+    // Methods to report local state
     isOnScene: () => onScene,
     isClicked: () => clicked,
     wasTapped: () => wasTapped,
@@ -98,7 +95,6 @@ export function initCursor3d(params) {
     }
 
     cursor2d.reset();
-    return;
   }
 
   function stopZoom(height) {

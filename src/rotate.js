@@ -1,24 +1,25 @@
 import * as vec3 from "gl-matrix/vec3";
 import { updateOscillator } from "./oscillator.js";
 
-export function initRotation(ellipsoid) {
+export function initRotation(ellipsoid, cursor3d) {
   // Update rotations and rotation velocities based on forces applied
   // via a mouse click & drag event
   const w0 = 40.0;
   const extension = new Float64Array(3);
+  const { position: cursorPosition, clickPosition } = cursor3d;
 
-  return function(position, velocity, mouse3d, deltaTime) {
+  return function(position, velocity, deltaTime) {
     // Input mouse3d is a pointer to a mouse object
     // Inputs position, velocity are pointers to vec3s
     // Input deltaTime is a primitive floating point value
 
     // Find the displacement of the clicked position on the globe
     // from the current mouse position
-    vec3.subtract(extension, mouse3d.position, mouse3d.clickPosition);
+    vec3.subtract(extension, cursorPosition, clickPosition);
 
     // Convert to changes in longitude, latitude, and altitude
     ellipsoid.ecefToDeltaLonLatAlt(extension, extension,
-      mouse3d.clickPosition, position);
+      clickPosition, position);
     // Ignore altitude change for now
     extension[2] = 0.0;
 
