@@ -12,7 +12,9 @@ export function setParams(params) {
     display,
     units = "degrees",
     center = [0.0, 0.0],
-    altitude = 4.0 * ellipsoid.meanRadius(),
+    altitude = ellipsoid.meanRadius() * 4.0,
+    minHeight = ellipsoid.meanRadius() * 0.00001,
+    maxHeight = ellipsoid.meanRadius() * 8.0,
   } = params;
 
   if (!(display instanceof Element)) fail("missing display element");
@@ -28,13 +30,18 @@ export function setParams(params) {
     fail("center coordinates out of range");
   }
 
-  // Altitude must be a Number, positive and not too big
-  if (!Number.isFinite(altitude)) fail("altitude must be a number");
-  if (altitude < 0) fail("altitude out of range");
+  // Altitude, minHeight, maxHeight must be Numbers, positive and not too big
+  const heights = [altitude, minHeight, maxHeight];
+  if (!heights.every(h => Number.isFinite(h) && h > 0)) {
+    fail("altitude, minHeight, maxHeight must be Numbers > 0");
+  } else if (heights.some(h => h > ellipsoid.meanRadius() * 100000.0)) {
+    fail("altitude, minHeight, maxHeight must be somewhere below Jupiter");
+  }
 
   return {
     ellipsoid, display, units,
     initialPosition: [cx, cy, altitude],
+    minHeight, maxHeight,
     // view object computes ray parameters at points on the display
     view: initView(display, 25.0),
   };

@@ -14,7 +14,7 @@ export function init(userParams) {
   const camera = initCameraDynamics(params);
 
   // Initialize interaction with the ellipsoid via the mouse and screen
-  const cursor3d = initCursor3d(view.getRayParams, ellipsoid, camera.position);
+  const cursor3d = initCursor3d(params);
 
   let camMoving, cursorChanged;
 

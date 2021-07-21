@@ -1,9 +1,7 @@
 import * as vec4 from "gl-matrix/vec4";
 
-export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
-  // Input getRayParams is a method from yawgl.initView, converting screen X/Y
-  //  to a ray shooting into 3D space
-  // Input initialPosition is a geodetic lon/lat/alt vector
+export function initCursor3d(params) {
+  const { view, ellipsoid, initialPosition, minHeight, maxHeight } = params;
 
   // Cursor positions are computed & stored in ECEF coordinates (x,y,z)
   const cursorPosition = new Float64Array(3);
@@ -24,11 +22,8 @@ export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
 
   // Track target altitude for zooming
   let targetHeight = initialPosition[2];
-  const minHeight = ellipsoid.meanRadius() * 0.00001;
-  const maxHeight = ellipsoid.meanRadius() * 8.0;
   // Target screen ray for zooming
   const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
-
   // Local working vector
   const ecefRay = new Float64Array(4);
 
@@ -57,7 +52,7 @@ export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
 
   function update(cursor2d, camera) {
     // Get screen ray in model coordinates (ECEF)
-    getRayParams(cursorRay, cursor2d.x(), cursor2d.y());
+    view.getRayParams(cursorRay, cursor2d.x(), cursor2d.y());
     vec4.transformMat4(ecefRay, cursorRay, camera.rotation);
 
     // Find intersection of ray with ellipsoid
@@ -72,14 +67,13 @@ export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
     // Update cursor longitude/latitude
     ellipsoid.ecef2geocentric(cursorLonLat, cursorPosition);
 
-    if ( cursor2d.touchEnded() ) {
+    if (cursor2d.touchEnded()) {
       clicked = false;
       zoomFix = false;
     }
     wasTapped = cursor2d.tapped();
 
-    if ( cursor2d.touchStarted() ) {
-      // Set click position
+    if (cursor2d.touchStarted()) {
       clicked = true;
       clickPosition.set(cursorPosition);
       // Assuming this is a click or single touch, stop zooming
@@ -89,7 +83,7 @@ export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
       // If this was actually a two-touch zoom, then cursor2d.zoomStarted()...
     }
 
-    if ( cursor2d.zoomStarted() ) {
+    if (cursor2d.zoomStarted()) {
       zooming = true;
       zoomFix = true;
       zoomPosition.set(cursorPosition);
@@ -97,7 +91,7 @@ export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
       if (!clicked) camera.stopCoast();
     }
 
-    if ( cursor2d.zoomed() ) {
+    if (cursor2d.zoomed()) {
       zooming = true;
       targetHeight *= cursor2d.zscale();
       targetHeight = Math.min(Math.max(minHeight, targetHeight), maxHeight);

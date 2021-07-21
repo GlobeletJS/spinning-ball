@@ -5,10 +5,9 @@ export function initEcefToLocalGeo() {
   const toENU = new Float64Array(9);
 
   return function ecefToDeltaLonLatAlt(delta, diff, anchor, viewPos) {
-    // Inputs are pointers to vec3s.  WARNING: diff will be overwritten
-    // diff represents a differential change (e.g. motion?) near anchor.
-    // viewPos represents the position of the model coordinates (ECEF)
-    //   relative to the view coordinates.
+    // Inputs are in ECEF coords. viewPos represents the position of the model
+    //   coordinates relative to the view coordinates.
+    // Input diff represents a differential change (e.g. motion?) near anchor
     // Output delta will be the corresponding differentials in lon/lat/alt
 
     // 0. Compute sines and cosines of longitude and latitude at anchor, which
@@ -23,12 +22,11 @@ export function initEcefToLocalGeo() {
 
     // 1. Transform to local East-North-Up coordinates at the anchor location
     setupENU(cosLon, sinLon, cosLat, sinLat);
-    vec3.transformMat3(diff, diff, toENU);
+    vec3.transformMat3(delta, diff, toENU);
 
     // 2. Convert horizontal component to changes in longitude, latitude
-    delta[0] = diff[0] / r / (cosLat + 0.0001); // +0.0001 avoids /0
-    delta[1] = diff[1] / r;
-    delta[2] = diff[2];
+    delta[0] = delta[0] / r / (cosLat + 0.0001); // +0.0001 avoids /0
+    delta[1] = delta[1] / r;
 
     // 3. Latitudinal change is a rotation about an axis in the x-z plane, with
     // direction vec3.cross(anchor,North), or -East. We only want the component

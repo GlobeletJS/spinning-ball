@@ -358,10 +358,9 @@ function initEcefToLocalGeo() {
   const toENU = new Float64Array(9);
 
   return function ecefToDeltaLonLatAlt(delta, diff, anchor, viewPos) {
-    // Inputs are pointers to vec3s.  WARNING: diff will be overwritten
-    // diff represents a differential change (e.g. motion?) near anchor.
-    // viewPos represents the position of the model coordinates (ECEF)
-    //   relative to the view coordinates.
+    // Inputs are in ECEF coords. viewPos represents the position of the model
+    //   coordinates relative to the view coordinates.
+    // Input diff represents a differential change (e.g. motion?) near anchor
     // Output delta will be the corresponding differentials in lon/lat/alt
 
     // 0. Compute sines and cosines of longitude and latitude at anchor, which
@@ -376,12 +375,11 @@ function initEcefToLocalGeo() {
 
     // 1. Transform to local East-North-Up coordinates at the anchor location
     setupENU(cosLon, sinLon, cosLat, sinLat);
-    transformMat3(diff, diff, toENU);
+    transformMat3(delta, diff, toENU);
 
     // 2. Convert horizontal component to changes in longitude, latitude
-    delta[0] = diff[0] / r / (cosLat + 0.0001); // +0.0001 avoids /0
-    delta[1] = diff[1] / r;
-    delta[2] = diff[2];
+    delta[0] = delta[0] / r / (cosLat + 0.0001); // +0.0001 avoids /0
+    delta[1] = delta[1] / r;
 
     // 3. Latitudinal change is a rotation about an axis in the x-z plane, with
     // direction vec3.cross(anchor,North), or -East. We only want the component
@@ -478,7 +476,9 @@ function setParams(params) {
     display,
     units = "degrees",
     center = [0.0, 0.0],
-    altitude = 4.0 * ellipsoid.meanRadius(),
+    altitude = ellipsoid.meanRadius() * 4.0,
+    minHeight = ellipsoid.meanRadius() * 0.00001,
+    maxHeight = ellipsoid.meanRadius() * 8.0,
   } = params;
 
   if (!(display instanceof Element)) fail("missing display element");
@@ -494,13 +494,18 @@ function setParams(params) {
     fail("center coordinates out of range");
   }
 
-  // Altitude must be a Number, positive and not too big
-  if (!Number.isFinite(altitude)) fail("altitude must be a number");
-  if (altitude < 0) fail("altitude out of range");
+  // Altitude, minHeight, maxHeight must be Numbers, positive and not too big
+  const heights = [altitude, minHeight, maxHeight];
+  if (!heights.every(h => Number.isFinite(h) && h > 0)) {
+    fail("altitude, minHeight, maxHeight must be Numbers > 0");
+  } else if (heights.some(h => h > ellipsoid.meanRadius() * 100000.0)) {
+    fail("altitude, minHeight, maxHeight must be somewhere below Jupiter");
+  }
 
   return {
     ellipsoid, display, units,
     initialPosition: [cx, cy, altitude],
+    minHeight, maxHeight,
     // view object computes ray parameters at points on the display
     view: initView(display, 25.0),
   };
@@ -1296,10 +1301,8 @@ function transformMat4(out, a, m) {
   };
 })();
 
-function initCursor3d(getRayParams, ellipsoid, initialPosition) {
-  // Input getRayParams is a method from yawgl.initView, converting screen X/Y
-  //  to a ray shooting into 3D space
-  // Input initialPosition is a geodetic lon/lat/alt vector
+function initCursor3d(params) {
+  const { view, ellipsoid, initialPosition, minHeight, maxHeight } = params;
 
   // Cursor positions are computed & stored in ECEF coordinates (x,y,z)
   const cursorPosition = new Float64Array(3);
@@ -1320,11 +1323,8 @@ function initCursor3d(getRayParams, ellipsoid, initialPosition) {
 
   // Track target altitude for zooming
   let targetHeight = initialPosition[2];
-  const minHeight = ellipsoid.meanRadius() * 0.00001;
-  const maxHeight = ellipsoid.meanRadius() * 8.0;
   // Target screen ray for zooming
   const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
-
   // Local working vector
   const ecefRay = new Float64Array(4);
 
@@ -1353,7 +1353,7 @@ function initCursor3d(getRayParams, ellipsoid, initialPosition) {
 
   function update(cursor2d, camera) {
     // Get screen ray in model coordinates (ECEF)
-    getRayParams(cursorRay, cursor2d.x(), cursor2d.y());
+    view.getRayParams(cursorRay, cursor2d.x(), cursor2d.y());
     transformMat4(ecefRay, cursorRay, camera.rotation);
 
     // Find intersection of ray with ellipsoid
@@ -1368,14 +1368,13 @@ function initCursor3d(getRayParams, ellipsoid, initialPosition) {
     // Update cursor longitude/latitude
     ellipsoid.ecef2geocentric(cursorLonLat, cursorPosition);
 
-    if ( cursor2d.touchEnded() ) {
+    if (cursor2d.touchEnded()) {
       clicked = false;
       zoomFix = false;
     }
     wasTapped = cursor2d.tapped();
 
-    if ( cursor2d.touchStarted() ) {
-      // Set click position
+    if (cursor2d.touchStarted()) {
       clicked = true;
       clickPosition.set(cursorPosition);
       // Assuming this is a click or single touch, stop zooming
@@ -1385,7 +1384,7 @@ function initCursor3d(getRayParams, ellipsoid, initialPosition) {
       // If this was actually a two-touch zoom, then cursor2d.zoomStarted()...
     }
 
-    if ( cursor2d.zoomStarted() ) {
+    if (cursor2d.zoomStarted()) {
       zooming = true;
       zoomFix = true;
       zoomPosition.set(cursorPosition);
@@ -1393,7 +1392,7 @@ function initCursor3d(getRayParams, ellipsoid, initialPosition) {
       if (!clicked) camera.stopCoast();
     }
 
-    if ( cursor2d.zoomed() ) {
+    if (cursor2d.zoomed()) {
       zooming = true;
       targetHeight *= cursor2d.zscale();
       targetHeight = Math.min(Math.max(minHeight, targetHeight), maxHeight);
@@ -1421,7 +1420,7 @@ function init(userParams) {
   const camera = initCameraDynamics(params);
 
   // Initialize interaction with the ellipsoid via the mouse and screen
-  const cursor3d = initCursor3d(view.getRayParams, ellipsoid, camera.position);
+  const cursor3d = initCursor3d(params);
 
   let camMoving, cursorChanged;
 

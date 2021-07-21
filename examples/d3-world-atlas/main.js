@@ -92,6 +92,7 @@ export function main() {
   }
 
   function renderPrep() {
+    console.log("renderPrep: ball.cameraPos = " + ball.cameraPos);
     context.restore();
     context.save();
     context.clearRect(0, 0, numPixelsX, numPixelsY);
