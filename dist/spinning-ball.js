@@ -963,9 +963,10 @@ function dragonflyStalk(camPos, zoomPos, zoomRay, ellipsoid) {
 
   // Find the ray-sphere intersection in unrotated model space coordinates
   const centerDist = camPos[2] + ellipsoid.meanRadius();
-  const [lon, lat] = getCamPos(centerDist, zoomPos, zoomRay, ellipsoid);
+  const lonLat = getCamPos(centerDist, zoomPos, zoomRay, ellipsoid);
+  if (!lonLat) return;
 
-  const dLonLat = [lon - camPos[0], lat - camPos[1]];
+  const dLonLat = [lonLat[0] - camPos[0], lonLat[1] - camPos[1]];
   const limited = limitRotation(dLonLat);
   camPos[0] += dLonLat[0];
   camPos[1] += dLonLat[1];
@@ -1064,7 +1065,7 @@ function initRotation(ellipsoid, cursor3d) {
   // via a mouse click & drag event
   const w0 = 40.0;
   const extension = new Float64Array(3);
-  const { position: cursorPosition, clickPosition } = cursor3d;
+  const { cursorPosition, clickPosition } = cursor3d;
 
   return function(position, velocity, deltaTime) {
     // Input mouse3d is a pointer to a mouse object
@@ -1339,7 +1340,7 @@ function initCursor3d(params) {
 
   return {
     // POINTERs to local arrays. WARNING: local vals can be changed outside!
-    position: cursorPosition, // TODO: why make the name more ambiguous?
+    cursorPosition,
     cursorLonLat,
     clickPosition,
     zoomPosition,
@@ -1366,19 +1367,14 @@ function initCursor3d(params) {
     // Find intersection of ray with ellipsoid
     onScene = ellipsoid.shoot(cursorPosition, camera.ecefPos, ecefRay);
     if (!onScene) {
-      clicked = false;
-      stopZoom(camera.position[2]);
-      cursor2d.reset();
-      return;
+      clicked = zoomFix = false;
+      return cursor2d.reset();
     }
 
     // Update cursor longitude/latitude
     ellipsoid.ecef2geocentric(cursorLonLat, cursorPosition);
 
-    if (cursor2d.touchEnded()) {
-      clicked = false;
-      zoomFix = false;
-    }
+    if (cursor2d.touchEnded()) clicked = zoomFix = false;
     wasTapped = cursor2d.tapped();
 
     if (cursor2d.touchStarted()) {
@@ -1392,8 +1388,7 @@ function initCursor3d(params) {
     }
 
     if (cursor2d.zoomStarted()) {
-      zooming = true;
-      zoomFix = true;
+      zooming = zoomFix = true;
       zoomPosition.set(cursorPosition);
       zoomRay.set(cursorRay);
       if (!clicked) camera.stopCoast();
@@ -1409,8 +1404,7 @@ function initCursor3d(params) {
   }
 
   function stopZoom(height) {
-    zooming = false;
-    zoomFix = false;
+    zooming = zoomFix = false;
     if (height !== undefined) targetHeight = height;
   }
 }

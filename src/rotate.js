@@ -6,7 +6,7 @@ export function initRotation(ellipsoid, cursor3d) {
   // via a mouse click & drag event
   const w0 = 40.0;
   const extension = new Float64Array(3);
-  const { position: cursorPosition, clickPosition } = cursor3d;
+  const { cursorPosition, clickPosition } = cursor3d;
 
   return function(position, velocity, deltaTime) {
     // Input mouse3d is a pointer to a mouse object

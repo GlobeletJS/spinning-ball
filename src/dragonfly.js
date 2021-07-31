@@ -10,9 +10,10 @@ export function dragonflyStalk(camPos, zoomPos, zoomRay, ellipsoid) {
 
   // Find the ray-sphere intersection in unrotated model space coordinates
   const centerDist = camPos[2] + ellipsoid.meanRadius();
-  const [lon, lat] = getCamPos(centerDist, zoomPos, zoomRay, ellipsoid);
+  const lonLat = getCamPos(centerDist, zoomPos, zoomRay, ellipsoid);
+  if (!lonLat) return;
 
-  const dLonLat = [lon - camPos[0], lat - camPos[1]];
+  const dLonLat = [lonLat[0] - camPos[0], lonLat[1] - camPos[1]];
   const limited = limitRotation(dLonLat);
   camPos[0] += dLonLat[0];
   camPos[1] += dLonLat[1];

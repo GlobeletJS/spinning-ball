@@ -28,7 +28,7 @@ export function initCursor3d(params) {
 
   return {
     // POINTERs to local arrays. WARNING: local vals can be changed outside!
-    position: cursorPosition, // TODO: why make the name more ambiguous?
+    cursorPosition,
     cursorLonLat,
     clickPosition,
     zoomPosition,
@@ -55,19 +55,14 @@ export function initCursor3d(params) {
     // Find intersection of ray with ellipsoid
     onScene = ellipsoid.shoot(cursorPosition, camera.ecefPos, ecefRay);
     if (!onScene) {
-      clicked = false;
-      stopZoom(camera.position[2]);
-      cursor2d.reset();
-      return;
+      clicked = zoomFix = false;
+      return cursor2d.reset();
     }
 
     // Update cursor longitude/latitude
     ellipsoid.ecef2geocentric(cursorLonLat, cursorPosition);
 
-    if (cursor2d.touchEnded()) {
-      clicked = false;
-      zoomFix = false;
-    }
+    if (cursor2d.touchEnded()) clicked = zoomFix = false;
     wasTapped = cursor2d.tapped();
 
     if (cursor2d.touchStarted()) {
@@ -81,8 +76,7 @@ export function initCursor3d(params) {
     }
 
     if (cursor2d.zoomStarted()) {
-      zooming = true;
-      zoomFix = true;
+      zooming = zoomFix = true;
       zoomPosition.set(cursorPosition);
       zoomRay.set(cursorRay);
       if (!clicked) camera.stopCoast();
@@ -98,8 +92,7 @@ export function initCursor3d(params) {
   }
 
   function stopZoom(height) {
-    zooming = false;
-    zoomFix = false;
+    zooming = zoomFix = false;
     if (height !== undefined) targetHeight = height;
   }
 }
