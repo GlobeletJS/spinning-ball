@@ -10,7 +10,7 @@ export function initCameraDynamics(params, cursor3d) {
   //   altitude defined by distance along surface normal, in the same length
   //   units as semiMajor and semiMinor in ellipsoid.js
   const position = new Float64Array(initialPosition);
-  const velocity = new Float64Array(3); // Initializes to [0,0,0]
+  const velocity = new Float64Array(3);
 
   // Initialize ECEF position, rotation matrix, inverse, and update method
   const ecef = initECEF(ellipsoid, position);
@@ -38,7 +38,7 @@ export function initCameraDynamics(params, cursor3d) {
     lonLatToScreenXY: projector.lonLatToScreenXY,
 
     update,
-    stopZoom,
+    stopZoom: () => velocity.fill(0.0, 2),
     stopCoast: () => velocity.fill(0.0, 0, 2),
   };
 
@@ -52,7 +52,7 @@ export function initCameraDynamics(params, cursor3d) {
       ? rotate(position, velocity, deltaTime)
       : coast(position, velocity, deltaTime) || cursor3d.isZooming();
 
-    if (cursor3d.isZooming()) { // Update zoom
+    if (cursor3d.isZooming()) {
       // Update ECEF position and rotation/inverse matrices
       ecef.update(position);
       // Update 2D screen position of 3D zoom position
@@ -61,16 +61,12 @@ export function initCameraDynamics(params, cursor3d) {
         if (cursor3d.isClicked()) cursor3d.zoomRay.set(rayVec);
         zoom(position, velocity, deltaTime);
       } else {
-        stopZoom(); // TODO: is this needed? Might want to keep coasting
+        velocity.fill(0.0, 2); // TODO: is this needed? Or keep coasting?
         cursor3d.stopZoom();
       }
     }
 
     if (needToRender) ecef.update(position);
     return needToRender;
-  }
-
-  function stopZoom() {
-    velocity.fill(0.0, 2);
   }
 }

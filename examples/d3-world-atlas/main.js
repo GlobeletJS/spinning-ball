@@ -92,14 +92,15 @@ export function main() {
   }
 
   function renderPrep() {
-    console.log("renderPrep: ball.cameraPos = " + ball.cameraPos);
+    const cameraPos = ball.cameraPos; // ();
+    console.log("renderPrep: ball.cameraPos = " + cameraPos);
     context.restore();
     context.save();
     context.clearRect(0, 0, numPixelsX, numPixelsY);
 
-    let lon = ball.cameraPos[0] * degrees;
-    let lat = ball.cameraPos[1] * degrees;
-    let alt = ball.cameraPos[2];
+    let lon = cameraPos[0] * degrees;
+    let lat = cameraPos[1] * degrees;
+    let alt = cameraPos[2];
     let snyderP = 1 + alt / ball.radius();
     let visibleYextent = 2 * alt * Math.tan(0.5 * fieldOfView / degrees);
     let scale = ball.radius() * numPixelsY / visibleYextent;
