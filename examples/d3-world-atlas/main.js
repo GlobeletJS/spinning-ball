@@ -92,7 +92,7 @@ export function main() {
   }
 
   function renderPrep() {
-    const cameraPos = ball.cameraPos; // ();
+    const cameraPos = ball.cameraPos();
     console.log("renderPrep: ball.cameraPos = " + cameraPos);
     context.restore();
     context.save();

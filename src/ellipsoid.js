@@ -1,5 +1,5 @@
 import { initRayGun } from "./raygun.js";
-import { initEcefToLocalGeo } from "./geodelta";
+import { initEcefToLocalGeo } from "./geodelta.js";
 
 export function initEllipsoid() {
   const { atan2, sin, cos, sqrt, hypot } = Math;

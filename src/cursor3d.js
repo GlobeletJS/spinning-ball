@@ -1,6 +1,6 @@
 import * as vec4 from "gl-matrix/vec4";
 
-export function initCursor3d(params) {
+export function initCursor3d(params, camera) {
   const { view, ellipsoid, initialPosition, minHeight, maxHeight } = params;
 
   // Cursor positions are computed & stored in ECEF coordinates (x,y,z)
@@ -47,7 +47,7 @@ export function initCursor3d(params) {
     stopZoom,
   };
 
-  function update(cursor2d, camera) {
+  function update(cursor2d, dynamics) {
     // Get screen ray in model coordinates (ECEF)
     view.getRayParams(cursorRay, cursor2d.x(), cursor2d.y());
     vec4.transformMat4(ecefRay, cursorRay, camera.rotation);
@@ -69,9 +69,9 @@ export function initCursor3d(params) {
       clicked = true;
       clickPosition.set(cursorPosition);
       // Assuming this is a click or single touch, stop zooming
-      stopZoom(camera.position[2]);
+      stopZoom(camera.position()[2]);
       // Also stop any coasting in the altitude direction
-      camera.stopZoom();
+      dynamics.stopZoom();
       // If this was actually a two-touch zoom, then cursor2d.zoomStarted()...
     }
 
@@ -79,7 +79,7 @@ export function initCursor3d(params) {
       zooming = zoomFix = true;
       zoomPosition.set(cursorPosition);
       zoomRay.set(cursorRay);
-      if (!clicked) camera.stopCoast();
+      if (!clicked) dynamics.stopCoast();
     }
 
     if (cursor2d.zoomed()) {

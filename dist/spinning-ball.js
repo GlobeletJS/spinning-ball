@@ -523,201 +523,6 @@ function fail(message) {
   throw Error("spinning-ball: " + message);
 }
 
-function initCursor() {
-  // What does an animation need to know about the cursor at each frame?
-  // First, whether the user did any of the following since the last frame:
-  //  - Started new actions
-  let touchStarted = false; // Touched or clicked the element
-  let zoomStarted  = false; // Rotated mousewheel, or started two-finger touch
-  //  - Changed something
-  let moved  = false;       // Moved mouse or touch point
-  let zoomed = false;       // Rotated mousewheel, or adjusted two-finger touch
-  //  - Is potentially in the middle of something
-  let tapping = false;      // No touchEnd, and no cursor motion
-  //  - Ended actions
-  let touchEnded = false;   // mouseup or touchend/cancel/leave
-  let tapped = false;       // Completed a click or tap action
-
-  // We also need to know the current cursor position and zoom scale
-  let cursorX = 0;
-  let cursorY = 0;
-  let zscale = 1.0;
-
-  // For tap/click reporting, we need to remember where the touch started
-  let startX = 0;
-  let startY = 0;
-  // What is a click/tap and what is a drag? If the cursor moved more than
-  // this threshold between touchStart and touchEnd, it is a drag
-  const threshold = 6;
-
-  return {
-    // Methods to report local state. Return a copy to protect local values
-    touchStarted: () => touchStarted,
-    zoomStarted: () => zoomStarted,
-    moved: () => moved,
-    zoomed: () => zoomed,
-    tapped: () => tapped,
-    touchEnded: () => touchEnded,
-    hasChanged: () => (moved || zoomed || tapped),
-    zscale: () => zscale,
-    x: () => cursorX,
-    y: () => cursorY,
-
-    // Methods to update local state
-    startTouch,
-    startZoom,
-    move,
-    zoom,
-    endTouch,
-    reset,
-  };
-
-  function startTouch(evnt) {
-    cursorX = evnt.clientX;
-    cursorY = evnt.clientY;
-    touchStarted = true;
-    startX = cursorX;
-    startY = cursorY;
-    tapping = true;
-  }
-
-  function startZoom(evnt) {
-    // Store the cursor position
-    cursorX = evnt.clientX;
-    cursorY = evnt.clientY;
-    zoomStarted = true;
-    tapping = false;
-  }
-
-  function move(evnt) {
-    cursorX = evnt.clientX;
-    cursorY = evnt.clientY;
-    moved = true;
-    const dist = Math.abs(cursorX - startX) + Math.abs(cursorY - startY);
-    if (dist > threshold) tapping = false;
-  }
-
-  function zoom(scale) {
-    zscale *= scale;
-    zoomed = true;
-    tapping = false;
-  }
-
-  function endTouch() {
-    if (touchStarted) {
-      // Ending a new touch? Just ignore both // TODO: is this a good idea?
-      touchStarted = false;
-      touchEnded = false;
-    } else {
-      touchEnded = true;
-    }
-    tapped = tapping;
-    tapping = false;
-  }
-
-  function reset() {
-    touchStarted = false;
-    zoomStarted  = false;
-    moved  = false;
-    zoomed = false;
-    touchEnded = false;
-    // NOTE: we do NOT reset tapping... this could carry over to next check
-    tapped = false;
-    zscale = 1.0;
-  }
-}
-
-function initTouch(div) {
-  // Add event listeners to update the state of a cursor object
-  // Input div is an HTML element on which events will be registered
-  const cursor = initCursor();
-
-  // Remember the distance between two pointers
-  let lastDistance = 1.0;
-
-  div.addEventListener("dragstart", d => d.preventDefault(), false);
-
-  // Add mouse events
-  div.addEventListener("mousedown",   cursor.startTouch, false);
-  div.addEventListener("mousemove",   cursor.move,       false);
-  div.addEventListener("mouseup",     cursor.endTouch,   false);
-  div.addEventListener("mouseleave",  cursor.endTouch,   false);
-  div.addEventListener("wheel",       wheelZoom,         false);
-
-  // Add touch events
-  div.addEventListener("touchstart",  initTouch,       false);
-  div.addEventListener("touchmove",   moveTouch,       false);
-  div.addEventListener("touchend",    cursor.endTouch, false);
-  div.addEventListener("touchcancel", cursor.endTouch, false);
-
-  return cursor;
-
-  function initTouch(evnt) {
-    const { touches } = evnt;
-    evnt.preventDefault();
-    switch (touches.length) {
-      case 1:
-        cursor.startTouch(touches[0]);
-        break;
-      case 2: {
-        const midpoint = getMidPoint(touches[0], touches[1]);
-        cursor.startTouch(midpoint);
-        cursor.startZoom(midpoint);
-        // Initialize the starting distance between touches
-        lastDistance = midpoint.distance;
-        break;
-      }
-      default:
-        cursor.endTouch(evnt);
-    }
-  }
-
-  function moveTouch(evnt) {
-    const { touches } = evnt;
-    evnt.preventDefault();
-    // NOTE: MDN says to add the touchmove handler within the touchstart handler
-    // https://developer.mozilla.org/en-US/docs/Web/API/Touch_events/Using_Touch_Events
-    switch (touches.length) {
-      case 1:
-        cursor.move(touches[0]);
-        break;
-      case 2: {
-        const midpoint = getMidPoint(touches[0], touches[1]);
-        // Move the cursor to the midpoint
-        cursor.move(midpoint);
-        // Zoom based on the change in distance between the two touches
-        cursor.zoom(lastDistance / midpoint.distance);
-        // Remember the new touch distance
-        lastDistance = midpoint.distance;
-        break;
-      }
-      default:
-        return false;
-    }
-  }
-
-  // Convert a two-touch event to a single event at the midpoint
-  function getMidPoint(p0, p1) {
-    const dx = p1.clientX - p0.clientX;
-    const dy = p1.clientY - p0.clientY;
-    return {
-      clientX: p0.clientX + dx / 2,
-      clientY: p0.clientY + dy / 2,
-      distance: Math.hypot(dx, dy),
-    };
-  }
-
-  function wheelZoom(turn) {
-    turn.preventDefault();
-    cursor.startZoom(turn);
-    // We ignore the dY from the browser, since it may be arbitrarily scaled
-    // based on screen resolution or other factors. We keep only the sign.
-    // See https://github.com/Leaflet/Leaflet/issues/4538
-    const zoomScale = 1.0 + 0.2 * Math.sign(turn.deltaY);
-    cursor.zoom(zoomScale);
-  }
-}
-
 /**
  * 4x4 Matrix<br>Format: column-major, when typed out it looks like row-major<br>The matrices are being post multiplied.
  * @module mat4
@@ -927,6 +732,445 @@ function initECEF(ellipsoid, initialPos) {
   }
 }
 
+function initCamera(params) {
+  const { view, ellipsoid, initialPosition } = params;
+  const rayVec = new Float64Array(3);
+  const ecefTmp = new Float64Array(3);
+
+  // [longitude (radians), latitude (radians), altitude (kilometers)]
+  const position = new Float64Array(initialPosition);
+
+  const ecef = initECEF(ellipsoid, position);
+
+  return {
+    position: () => position.slice(),
+    ecefPos: ecef.position, // WARNING: exposed to changes from outside!
+    rotation: ecef.rotation,
+
+    lonLatToScreenXY,
+    ecefToScreenRay,
+    update,
+  };
+
+  function update(dPos) {
+    if (dPos.every(c => c == 0.0)) return;
+    position.set(position.map((c, i) => c + dPos[i]));
+    ecef.update(position);
+  }
+
+  function lonLatToScreenXY(xy, lonLat) {
+    ellipsoid.geodetic2ecef(ecefTmp, lonLat);
+    const visible = ecefToScreenRay(rayVec, ecefTmp);
+
+    xy[0] = view.width() * (1 + rayVec[0] / view.rightEdge()) / 2;
+    xy[1] = view.height() * (1 - rayVec[1] / view.topEdge()) / 2;
+    return visible;
+  }
+
+  function ecefToScreenRay(screenRay, ecefPoint) {
+    // Find the screenRay (from camera position) that intersects ecefPoint
+
+    // Translate to camera position
+    subtract(rayVec, ecefPoint, ecef.position);
+    // rayVec now points from camera to ecef. The sign of the
+    // dot product tells us whether it is beyond the horizon
+    const visible = dot(rayVec, ecefPoint) < 0;
+
+    // Rotate to camera orientation
+    transformMat4$1(screenRay, rayVec, ecef.inverse);
+
+    // Normalize to z = -1
+    screenRay[0] /= -screenRay[2];
+    screenRay[1] /= -screenRay[2];
+    screenRay[2] = -1.0;
+
+    return visible;
+  }
+}
+
+function initCursor() {
+  // What does an animation need to know about the cursor at each frame?
+  // First, whether the user did any of the following since the last frame:
+  //  - Started new actions
+  let touchStarted = false; // Touched or clicked the element
+  let zoomStarted  = false; // Rotated mousewheel, or started two-finger touch
+  //  - Changed something
+  let moved  = false;       // Moved mouse or touch point
+  let zoomed = false;       // Rotated mousewheel, or adjusted two-finger touch
+  //  - Is potentially in the middle of something
+  let tapping = false;      // No touchEnd, and no cursor motion
+  //  - Ended actions
+  let touchEnded = false;   // mouseup or touchend/cancel/leave
+  let tapped = false;       // Completed a click or tap action
+
+  // We also need to know the current cursor position and zoom scale
+  let cursorX = 0;
+  let cursorY = 0;
+  let zscale = 1.0;
+
+  // For tap/click reporting, we need to remember where the touch started
+  let startX = 0;
+  let startY = 0;
+  // What is a click/tap and what is a drag? If the cursor moved more than
+  // this threshold between touchStart and touchEnd, it is a drag
+  const threshold = 6;
+
+  return {
+    // Methods to report local state. Return a copy to protect local values
+    touchStarted: () => touchStarted,
+    zoomStarted: () => zoomStarted,
+    moved: () => moved,
+    zoomed: () => zoomed,
+    tapped: () => tapped,
+    touchEnded: () => touchEnded,
+    hasChanged: () => (moved || zoomed || tapped),
+    zscale: () => zscale,
+    x: () => cursorX,
+    y: () => cursorY,
+
+    // Methods to update local state
+    startTouch,
+    startZoom,
+    move,
+    zoom,
+    endTouch,
+    reset,
+  };
+
+  function startTouch(evnt) {
+    cursorX = evnt.clientX;
+    cursorY = evnt.clientY;
+    touchStarted = true;
+    startX = cursorX;
+    startY = cursorY;
+    tapping = true;
+  }
+
+  function startZoom(evnt) {
+    // Store the cursor position
+    cursorX = evnt.clientX;
+    cursorY = evnt.clientY;
+    zoomStarted = true;
+    tapping = false;
+  }
+
+  function move(evnt) {
+    cursorX = evnt.clientX;
+    cursorY = evnt.clientY;
+    moved = true;
+    const dist = Math.abs(cursorX - startX) + Math.abs(cursorY - startY);
+    if (dist > threshold) tapping = false;
+  }
+
+  function zoom(scale) {
+    zscale *= scale;
+    zoomed = true;
+    tapping = false;
+  }
+
+  function endTouch() {
+    if (touchStarted) {
+      // Ending a new touch? Just ignore both // TODO: is this a good idea?
+      touchStarted = false;
+      touchEnded = false;
+    } else {
+      touchEnded = true;
+    }
+    tapped = tapping;
+    tapping = false;
+  }
+
+  function reset() {
+    touchStarted = false;
+    zoomStarted  = false;
+    moved  = false;
+    zoomed = false;
+    touchEnded = false;
+    // NOTE: we do NOT reset tapping... this could carry over to next check
+    tapped = false;
+    zscale = 1.0;
+  }
+}
+
+function initTouch(div) {
+  // Add event listeners to update the state of a cursor object
+  // Input div is an HTML element on which events will be registered
+  const cursor = initCursor();
+
+  // Remember the distance between two pointers
+  let lastDistance = 1.0;
+
+  div.addEventListener("dragstart", d => d.preventDefault(), false);
+
+  // Add mouse events
+  div.addEventListener("mousedown",   cursor.startTouch, false);
+  div.addEventListener("mousemove",   cursor.move,       false);
+  div.addEventListener("mouseup",     cursor.endTouch,   false);
+  div.addEventListener("mouseleave",  cursor.endTouch,   false);
+  div.addEventListener("wheel",       wheelZoom,         false);
+
+  // Add touch events
+  div.addEventListener("touchstart",  initTouch,       false);
+  div.addEventListener("touchmove",   moveTouch,       false);
+  div.addEventListener("touchend",    cursor.endTouch, false);
+  div.addEventListener("touchcancel", cursor.endTouch, false);
+
+  return cursor;
+
+  function initTouch(evnt) {
+    const { touches } = evnt;
+    evnt.preventDefault();
+    switch (touches.length) {
+      case 1:
+        cursor.startTouch(touches[0]);
+        break;
+      case 2: {
+        const midpoint = getMidPoint(touches[0], touches[1]);
+        cursor.startTouch(midpoint);
+        cursor.startZoom(midpoint);
+        // Initialize the starting distance between touches
+        lastDistance = midpoint.distance;
+        break;
+      }
+      default:
+        cursor.endTouch(evnt);
+    }
+  }
+
+  function moveTouch(evnt) {
+    const { touches } = evnt;
+    evnt.preventDefault();
+    // NOTE: MDN says to add the touchmove handler within the touchstart handler
+    // https://developer.mozilla.org/en-US/docs/Web/API/Touch_events/Using_Touch_Events
+    switch (touches.length) {
+      case 1:
+        cursor.move(touches[0]);
+        break;
+      case 2: {
+        const midpoint = getMidPoint(touches[0], touches[1]);
+        // Move the cursor to the midpoint
+        cursor.move(midpoint);
+        // Zoom based on the change in distance between the two touches
+        cursor.zoom(lastDistance / midpoint.distance);
+        // Remember the new touch distance
+        lastDistance = midpoint.distance;
+        break;
+      }
+      default:
+        return false;
+    }
+  }
+
+  // Convert a two-touch event to a single event at the midpoint
+  function getMidPoint(p0, p1) {
+    const dx = p1.clientX - p0.clientX;
+    const dy = p1.clientY - p0.clientY;
+    return {
+      clientX: p0.clientX + dx / 2,
+      clientY: p0.clientY + dy / 2,
+      distance: Math.hypot(dx, dy),
+    };
+  }
+
+  function wheelZoom(turn) {
+    turn.preventDefault();
+    cursor.startZoom(turn);
+    // We ignore the dY from the browser, since it may be arbitrarily scaled
+    // based on screen resolution or other factors. We keep only the sign.
+    // See https://github.com/Leaflet/Leaflet/issues/4538
+    const zoomScale = 1.0 + 0.2 * Math.sign(turn.deltaY);
+    cursor.zoom(zoomScale);
+  }
+}
+
+/**
+ * 4 Dimensional Vector
+ * @module vec4
+ */
+
+/**
+ * Creates a new, empty vec4
+ *
+ * @returns {vec4} a new 4D vector
+ */
+
+function create() {
+  var out = new ARRAY_TYPE(4);
+
+  if (ARRAY_TYPE != Float32Array) {
+    out[0] = 0;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+  }
+
+  return out;
+}
+/**
+ * Transforms the vec4 with a mat4.
+ *
+ * @param {vec4} out the receiving vector
+ * @param {ReadonlyVec4} a the vector to transform
+ * @param {ReadonlyMat4} m matrix to transform with
+ * @returns {vec4} out
+ */
+
+function transformMat4(out, a, m) {
+  var x = a[0],
+      y = a[1],
+      z = a[2],
+      w = a[3];
+  out[0] = m[0] * x + m[4] * y + m[8] * z + m[12] * w;
+  out[1] = m[1] * x + m[5] * y + m[9] * z + m[13] * w;
+  out[2] = m[2] * x + m[6] * y + m[10] * z + m[14] * w;
+  out[3] = m[3] * x + m[7] * y + m[11] * z + m[15] * w;
+  return out;
+}
+/**
+ * Perform some operation over an array of vec4s.
+ *
+ * @param {Array} a the array of vectors to iterate over
+ * @param {Number} stride Number of elements between the start of each vec4. If 0 assumes tightly packed
+ * @param {Number} offset Number of elements to skip at the beginning of the array
+ * @param {Number} count Number of vec4s to iterate over. If 0 iterates over entire array
+ * @param {Function} fn Function to call for each vector in the array
+ * @param {Object} [arg] additional argument to pass to fn
+ * @returns {Array} a
+ * @function
+ */
+
+(function () {
+  var vec = create();
+  return function (a, stride, offset, count, fn, arg) {
+    var i, l;
+
+    if (!stride) {
+      stride = 4;
+    }
+
+    if (!offset) {
+      offset = 0;
+    }
+
+    if (count) {
+      l = Math.min(count * stride + offset, a.length);
+    } else {
+      l = a.length;
+    }
+
+    for (i = offset; i < l; i += stride) {
+      vec[0] = a[i];
+      vec[1] = a[i + 1];
+      vec[2] = a[i + 2];
+      vec[3] = a[i + 3];
+      fn(vec, vec, arg);
+      a[i] = vec[0];
+      a[i + 1] = vec[1];
+      a[i + 2] = vec[2];
+      a[i + 3] = vec[3];
+    }
+
+    return a;
+  };
+})();
+
+function initCursor3d(params, camera) {
+  const { view, ellipsoid, initialPosition, minHeight, maxHeight } = params;
+
+  // Cursor positions are computed & stored in ECEF coordinates (x,y,z)
+  const cursorPosition = new Float64Array(3);
+  const clickPosition = new Float64Array(3);
+  const zoomPosition = new Float64Array(3);
+  // Derived geocentric longitude, latitude, altitude
+  const cursorLonLat = new Float64Array(3);
+  // Screen ray for the 2D cursor position
+  const cursorRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
+
+  // Flags about the cursor state
+  let onScene = false;
+  let clicked = false;
+  let zooming = false;
+  let wasTapped = false;
+  let zoomFix = false; // Whether to fix the screen position of the zoom
+
+  // Track target altitude for zooming
+  let targetHeight = initialPosition[2];
+  // Target screen ray for zooming
+  const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
+  // Local working vector
+  const ecefRay = new Float64Array(4);
+
+  return {
+    // POINTERs to local arrays. WARNING: local vals can be changed outside!
+    cursorPosition,
+    cursorLonLat,
+    clickPosition,
+    zoomPosition,
+    zoomRay,
+
+    // Methods to report local state
+    isOnScene: () => onScene,
+    isClicked: () => clicked,
+    wasTapped: () => wasTapped,
+    isZooming: () => zooming,
+    zoomFixed: () => zoomFix,
+    zoomTarget: () => targetHeight,
+
+    // Functions to update local state
+    update,
+    stopZoom,
+  };
+
+  function update(cursor2d, dynamics) {
+    // Get screen ray in model coordinates (ECEF)
+    view.getRayParams(cursorRay, cursor2d.x(), cursor2d.y());
+    transformMat4(ecefRay, cursorRay, camera.rotation);
+
+    // Find intersection of ray with ellipsoid
+    onScene = ellipsoid.shoot(cursorPosition, camera.ecefPos, ecefRay);
+    if (!onScene) {
+      clicked = zoomFix = false;
+      return cursor2d.reset();
+    }
+
+    // Update cursor longitude/latitude
+    ellipsoid.ecef2geocentric(cursorLonLat, cursorPosition);
+
+    if (cursor2d.touchEnded()) clicked = zoomFix = false;
+    wasTapped = cursor2d.tapped();
+
+    if (cursor2d.touchStarted()) {
+      clicked = true;
+      clickPosition.set(cursorPosition);
+      // Assuming this is a click or single touch, stop zooming
+      stopZoom(camera.position()[2]);
+      // Also stop any coasting in the altitude direction
+      dynamics.stopZoom();
+      // If this was actually a two-touch zoom, then cursor2d.zoomStarted()...
+    }
+
+    if (cursor2d.zoomStarted()) {
+      zooming = zoomFix = true;
+      zoomPosition.set(cursorPosition);
+      zoomRay.set(cursorRay);
+      if (!clicked) dynamics.stopCoast();
+    }
+
+    if (cursor2d.zoomed()) {
+      zooming = true;
+      targetHeight *= cursor2d.zscale();
+      targetHeight = Math.min(Math.max(minHeight, targetHeight), maxHeight);
+    }
+
+    cursor2d.reset();
+  }
+
+  function stopZoom(height) {
+    zooming = zoomFix = false;
+    if (height !== undefined) targetHeight = height;
+  }
+}
+
 function oscillatorChange(x, v, t, w0) {
   // For a critically damped oscillator with natural frequency w0, find
   // the change in position x and velocity v over timestep t.  See
@@ -1081,57 +1325,9 @@ function initCoast(ellipsoid) {
   };
 }
 
-function initProjector(ellipsoid, camPosition, camInverse, screen) {
-  const rayVec = new Float64Array(3);
-  const ecefTmp = new Float64Array(3);
-
-  return { ecefToScreenRay, lonLatToScreenXY };
-
-  function lonLatToScreenXY(xy, lonLat) {
-    ellipsoid.geodetic2ecef(ecefTmp, lonLat);
-    const visible = ecefToScreenRay(rayVec, ecefTmp); // Overwrites rayVec!
-
-    xy[0] = screen.width() * (1 + rayVec[0] / screen.rightEdge()) / 2;
-    xy[1] = screen.height() * (1 - rayVec[1] / screen.topEdge()) / 2;
-    return visible;
-  }
-
-  function ecefToScreenRay(screenRay, ecefPosition) {
-    // For a given point on the ellipsoid (in ECEF coordinates) find the
-    // rayVec from a given camera position that will intersect it
-
-    // Translate to camera position
-    subtract(rayVec, ecefPosition, camPosition);
-    // rayVec now points from camera to ecef. The sign of the
-    // dot product tells us whether it is beyond the horizon
-    const visible = dot(rayVec, ecefPosition) < 0;
-
-    // Rotate to camera orientation
-    transformMat4$1(screenRay, rayVec, camInverse);
-
-    // Normalize to z = -1
-    screenRay[0] /= -screenRay[2];
-    screenRay[1] /= -screenRay[2];
-    screenRay[2] = -1.0;
-
-    return visible;
-  }
-}
-
-function initCameraDynamics(params, cursor3d) {
-  const { view, ellipsoid, initialPosition } = params;
-
-  // Position & velocity are computed in latitude & longitude in radians, and
-  //   altitude defined by distance along surface normal, in the same length
-  //   units as semiMajor and semiMinor in ellipsoid.js
-  const position = new Float64Array(initialPosition);
+function initCameraDynamics(ellipsoid, camera, cursor3d) {
+  // Velocity is the time differential of camera.position
   const velocity = new Float64Array(3);
-
-  // Initialize ECEF position, rotation matrix, inverse, and update method
-  const ecef = initECEF(ellipsoid, position);
-
-  // Initialize transforms from ellipsoid to screen positions
-  const projector = initProjector(ellipsoid, ecef.position, ecef.inverse, view);
 
   // Initialize some values and working arrays
   let time = 0.0;
@@ -1144,14 +1340,6 @@ function initCameraDynamics(params, cursor3d) {
 
   // Return methods to read/update state
   return {
-    position, // WARNING: Exposes local array to changes from outside
-
-    ecefPos: ecef.position,
-    rotation: ecef.rotation,
-    inverse: ecef.inverse,
-
-    lonLatToScreenXY: projector.lonLatToScreenXY,
-
     update,
     stopZoom: () => velocity.fill(0.0, 2),
     stopCoast: () => velocity.fill(0.0, 0, 2),
@@ -1164,217 +1352,25 @@ function initCameraDynamics(params, cursor3d) {
     if (deltaTime > 0.25) return false;
 
     const rotation = (cursor3d.isClicked())
-      ? rotate(position, velocity, deltaTime)
-      : coast(position, velocity, deltaTime);
-    position[0] += rotation[0];
-    position[1] += rotation[1];
-    const needToRender = rotation.some(c => c != 0.0) || cursor3d.isZooming();
+      ? rotate(camera.position(), velocity, deltaTime)
+      : coast(camera.position(), velocity, deltaTime);
+    camera.update(rotation);
 
-    if (cursor3d.isZooming()) {
-      // Update ECEF position and rotation/inverse matrices
-      ecef.update(position);
-      // Update 2D screen position of 3D zoom position
-      const visible = projector.ecefToScreenRay(rayVec, cursor3d.zoomPosition);
-      if (visible) {
-        if (cursor3d.isClicked()) cursor3d.zoomRay.set(rayVec);
-        const dPos = zoom(position, velocity, deltaTime);
-        position.set(position.map((c, i) => c + dPos[i]));
-      } else {
-        velocity.fill(0.0, 2); // TODO: is this needed? Or keep coasting?
-        cursor3d.stopZoom();
-      }
+    const rotated = rotation.some(c => c != 0.0);
+    if (!cursor3d.isZooming()) return rotated;
+
+    // Update 2D screen position of 3D zoom position
+    const visible = camera.ecefToScreenRay(rayVec, cursor3d.zoomPosition);
+    if (!visible) {
+      velocity.fill(0.0, 2); // TODO: is this needed? Or keep coasting?
+      cursor3d.stopZoom();
+      return rotated;
     }
 
-    if (needToRender) ecef.update(position);
-    return needToRender;
-  }
-}
-
-/**
- * 4 Dimensional Vector
- * @module vec4
- */
-
-/**
- * Creates a new, empty vec4
- *
- * @returns {vec4} a new 4D vector
- */
-
-function create() {
-  var out = new ARRAY_TYPE(4);
-
-  if (ARRAY_TYPE != Float32Array) {
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-  }
-
-  return out;
-}
-/**
- * Transforms the vec4 with a mat4.
- *
- * @param {vec4} out the receiving vector
- * @param {ReadonlyVec4} a the vector to transform
- * @param {ReadonlyMat4} m matrix to transform with
- * @returns {vec4} out
- */
-
-function transformMat4(out, a, m) {
-  var x = a[0],
-      y = a[1],
-      z = a[2],
-      w = a[3];
-  out[0] = m[0] * x + m[4] * y + m[8] * z + m[12] * w;
-  out[1] = m[1] * x + m[5] * y + m[9] * z + m[13] * w;
-  out[2] = m[2] * x + m[6] * y + m[10] * z + m[14] * w;
-  out[3] = m[3] * x + m[7] * y + m[11] * z + m[15] * w;
-  return out;
-}
-/**
- * Perform some operation over an array of vec4s.
- *
- * @param {Array} a the array of vectors to iterate over
- * @param {Number} stride Number of elements between the start of each vec4. If 0 assumes tightly packed
- * @param {Number} offset Number of elements to skip at the beginning of the array
- * @param {Number} count Number of vec4s to iterate over. If 0 iterates over entire array
- * @param {Function} fn Function to call for each vector in the array
- * @param {Object} [arg] additional argument to pass to fn
- * @returns {Array} a
- * @function
- */
-
-(function () {
-  var vec = create();
-  return function (a, stride, offset, count, fn, arg) {
-    var i, l;
-
-    if (!stride) {
-      stride = 4;
-    }
-
-    if (!offset) {
-      offset = 0;
-    }
-
-    if (count) {
-      l = Math.min(count * stride + offset, a.length);
-    } else {
-      l = a.length;
-    }
-
-    for (i = offset; i < l; i += stride) {
-      vec[0] = a[i];
-      vec[1] = a[i + 1];
-      vec[2] = a[i + 2];
-      vec[3] = a[i + 3];
-      fn(vec, vec, arg);
-      a[i] = vec[0];
-      a[i + 1] = vec[1];
-      a[i + 2] = vec[2];
-      a[i + 3] = vec[3];
-    }
-
-    return a;
-  };
-})();
-
-function initCursor3d(params) {
-  const { view, ellipsoid, initialPosition, minHeight, maxHeight } = params;
-
-  // Cursor positions are computed & stored in ECEF coordinates (x,y,z)
-  const cursorPosition = new Float64Array(3);
-  const clickPosition = new Float64Array(3);
-  const zoomPosition = new Float64Array(3);
-  // Derived geocentric longitude, latitude, altitude
-  const cursorLonLat = new Float64Array(3);
-  // Screen ray for the 2D cursor position
-  const cursorRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
-
-  // Flags about the cursor state
-  let onScene = false;
-  let clicked = false;
-  let zooming = false;
-  let wasTapped = false;
-  let zoomFix = false; // Whether to fix the screen position of the zoom
-
-  // Track target altitude for zooming
-  let targetHeight = initialPosition[2];
-  // Target screen ray for zooming
-  const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
-  // Local working vector
-  const ecefRay = new Float64Array(4);
-
-  return {
-    // POINTERs to local arrays. WARNING: local vals can be changed outside!
-    cursorPosition,
-    cursorLonLat,
-    clickPosition,
-    zoomPosition,
-    zoomRay,
-
-    // Methods to report local state
-    isOnScene: () => onScene,
-    isClicked: () => clicked,
-    wasTapped: () => wasTapped,
-    isZooming: () => zooming,
-    zoomFixed: () => zoomFix,
-    zoomTarget: () => targetHeight,
-
-    // Functions to update local state
-    update,
-    stopZoom,
-  };
-
-  function update(cursor2d, camera) {
-    // Get screen ray in model coordinates (ECEF)
-    view.getRayParams(cursorRay, cursor2d.x(), cursor2d.y());
-    transformMat4(ecefRay, cursorRay, camera.rotation);
-
-    // Find intersection of ray with ellipsoid
-    onScene = ellipsoid.shoot(cursorPosition, camera.ecefPos, ecefRay);
-    if (!onScene) {
-      clicked = zoomFix = false;
-      return cursor2d.reset();
-    }
-
-    // Update cursor longitude/latitude
-    ellipsoid.ecef2geocentric(cursorLonLat, cursorPosition);
-
-    if (cursor2d.touchEnded()) clicked = zoomFix = false;
-    wasTapped = cursor2d.tapped();
-
-    if (cursor2d.touchStarted()) {
-      clicked = true;
-      clickPosition.set(cursorPosition);
-      // Assuming this is a click or single touch, stop zooming
-      stopZoom(camera.position[2]);
-      // Also stop any coasting in the altitude direction
-      camera.stopZoom();
-      // If this was actually a two-touch zoom, then cursor2d.zoomStarted()...
-    }
-
-    if (cursor2d.zoomStarted()) {
-      zooming = zoomFix = true;
-      zoomPosition.set(cursorPosition);
-      zoomRay.set(cursorRay);
-      if (!clicked) camera.stopCoast();
-    }
-
-    if (cursor2d.zoomed()) {
-      zooming = true;
-      targetHeight *= cursor2d.zscale();
-      targetHeight = Math.min(Math.max(minHeight, targetHeight), maxHeight);
-    }
-
-    cursor2d.reset();
-  }
-
-  function stopZoom(height) {
-    zooming = zoomFix = false;
-    if (height !== undefined) targetHeight = height;
+    if (cursor3d.isClicked()) cursor3d.zoomRay.set(rayVec);
+    const zoomChange = zoom(camera.position(), velocity, deltaTime);
+    camera.update(zoomChange);
+    return true;
   }
 }
 
@@ -1382,14 +1378,16 @@ function init(userParams) {
   const params = setParams(userParams);
   const { ellipsoid, display, view } = params;
 
+  // Initialize camera: transforms related to view position
+  const camera = initCamera(params);
+
   // Add event handlers and position tracking to display element
   const cursor2d = initTouch(display);
-
   // Initialize interaction with the ellipsoid via the mouse and screen
-  const cursor3d = initCursor3d(params);
+  const cursor3d = initCursor3d(params, camera);
 
   // Initialize camera dynamics: time, position, velocity, etc.
-  const camera = initCameraDynamics(params, cursor3d);
+  const dynamics = initCameraDynamics(ellipsoid, camera, cursor3d);
 
   let camMoving, cursorChanged;
 
@@ -1418,12 +1416,10 @@ function init(userParams) {
     // Check for changes in display size
     const resized = view.changed();
 
-    // Update camera dynamics
-    camMoving = camera.update(time, cursor3d) || resized;
-
-    // Update cursor positions, if necessary
+    // Update camera dynamics, and 3D cursor position (if necessary)
+    camMoving = dynamics.update(time) || resized;
     cursorChanged = cursor2d.hasChanged() || camMoving || cursor3d.wasTapped();
-    if (cursorChanged) cursor3d.update(cursor2d, camera);
+    if (cursorChanged) cursor3d.update(cursor2d, dynamics);
 
     return camMoving;
   }
