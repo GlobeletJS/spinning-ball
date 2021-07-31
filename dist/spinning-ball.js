@@ -1058,30 +1058,29 @@ function initRotation(ellipsoid, cursor3d) {
       clickPosition, position);
 
     const [x, y] = extension;
-    const [dx, dVx] = oscillatorChange(x, velocity[0], dt, w0);
-    const [dy, dVy] = oscillatorChange(y, velocity[1], dt, w0);
+    const [dLon, dVx] = oscillatorChange(x, velocity[0], dt, w0);
+    const [dLat, dVy] = oscillatorChange(y, velocity[1], dt, w0);
 
     velocity[0] += dVx;
     velocity[1] += dVy;
-    position[0] += dx;
-    position[1] += dy;
-    return true;   // Position changed, need to re-render
+
+    return new Float64Array([dLon, dLat, 0.0]);
   };
 }
 
 function initCoast(ellipsoid) {
   // Update rotations based on a freely spinning globe (no forces)
-  const damping = 3.0;
+  const damping = 3.0; // Viscous damping
   const radius = ellipsoid.meanRadius();
   const minSpeed = 0.03;
 
   return function(position, velocity, dt) {
     // TODO: switch to exact formula? (not finite difference)
 
-    if (length(velocity) < minSpeed * position[2] / radius) {
-      // Rotation has almost stopped. Go ahead and stop all the way
-      velocity.fill(0.0);
-      return false; // No change to position, no need to re-render
+    const speed = Math.hypot(velocity[0], velocity[1]);
+    if (speed < minSpeed * position[2] / radius) {
+      velocity.fill(0.0, 0, 2);
+      return new Float64Array(3); // No change in position
     }
 
     // Adjust previous velocities for damping over the past time interval
@@ -1089,10 +1088,10 @@ function initCoast(ellipsoid) {
     velocity[0] += velocity[0] * dvDamp;
     velocity[1] += velocity[1] * dvDamp;
 
-    // Update rotations
-    position[0] += velocity[0] * dt;
-    position[1] += velocity[1] * dt;
-    return true;    // Position changed, need to re-render
+    // Return change in position
+    const dLon = velocity[0] * dt;
+    const dLat = velocity[1] * dt;
+    return new Float64Array([dLon, dLat, 0.0]);
   };
 }
 
@@ -1178,9 +1177,12 @@ function initCameraDynamics(params, cursor3d) {
     // If timestep too big, wait till next frame to update physics
     if (deltaTime > 0.25) return false;
 
-    const needToRender = (cursor3d.isClicked())
+    const rotation = (cursor3d.isClicked())
       ? rotate(position, velocity, deltaTime)
-      : coast(position, velocity, deltaTime) || cursor3d.isZooming();
+      : coast(position, velocity, deltaTime);
+    position[0] += rotation[0];
+    position[1] += rotation[1];
+    const needToRender = rotation.some(c => c != 0.0) || cursor3d.isZooming();
 
     if (cursor3d.isZooming()) {
       // Update ECEF position and rotation/inverse matrices

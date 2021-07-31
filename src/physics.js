@@ -48,9 +48,12 @@ export function initCameraDynamics(params, cursor3d) {
     // If timestep too big, wait till next frame to update physics
     if (deltaTime > 0.25) return false;
 
-    const needToRender = (cursor3d.isClicked())
+    const rotation = (cursor3d.isClicked())
       ? rotate(position, velocity, deltaTime)
-      : coast(position, velocity, deltaTime) || cursor3d.isZooming();
+      : coast(position, velocity, deltaTime);
+    position[0] += rotation[0];
+    position[1] += rotation[1];
+    const needToRender = rotation.some(c => c != 0.0) || cursor3d.isZooming();
 
     if (cursor3d.isZooming()) {
       // Update ECEF position and rotation/inverse matrices
