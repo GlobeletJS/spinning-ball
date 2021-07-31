@@ -7,10 +7,26 @@ export function dragonflyStalk(camPos, zoomPos, zoomRay, ellipsoid) {
   //  toward zoomPos when the zoom action began
   // The lon, lat in camPos will be adjusted to re-align zoomPos along zoomRay
   //  (e.g., after a change in camera altitude)
+
+  // Find the ray-sphere intersection in unrotated model space coordinates
+  const centerDist = camPos[2] + ellipsoid.meanRadius();
+  const [lon, lat] = getCamPos(centerDist, zoomPos, zoomRay, ellipsoid);
+
+  const dLonLat = [lon - camPos[0], lat - camPos[1]];
+  const limited = limitRotation(dLonLat);
+  camPos[0] += dLonLat[0];
+  camPos[1] += dLonLat[1];
+
+  return limited;
+}
+
+export function getCamPos(centerDist, zoomPos, zoomRay, ellipsoid) {
+  // Returns the [lon, lat] where a camera at centerDist km from the
+  // ellipsoid center will have zoomPos aligned along zoomRay
   const { abs, hypot, asin, cos, atan2 } = Math;
 
   // Find the ray-sphere intersection in unrotated model space coordinates
-  const unrotatedCamPos = [0.0, 0.0, camPos[2] + ellipsoid.meanRadius()];
+  const unrotatedCamPos = [0.0, 0.0, centerDist];
   const target = new Float64Array(3);
   const intersected = ellipsoid.shoot(target, unrotatedCamPos, zoomRay);
   if (!intersected) return;
@@ -30,15 +46,10 @@ export function dragonflyStalk(camPos, zoomPos, zoomRay, ellipsoid) {
   const rotX = atan2(zRotated, zoomY) - targetRotX;
 
   // Note signs: rotX ~ -latitude
-  const dLonLat = [rotY - camPos[0], -rotX - camPos[1]];
-  const limited = limitRotation(dLonLat);
-  camPos[0] += dLonLat[0];
-  camPos[1] += dLonLat[1];
-
-  return limited;
+  return [rotY, -rotX];
 }
 
-function limitRotation(dPos) {
+export function limitRotation(dPos) {
   const { abs, min, max, PI } = Math;
   const maxRotation = 0.15;
 
