@@ -1,27 +1,5 @@
-// TODO: Clean this up. Just use difference of lat/lon under ray?
-export function dragonflyStalk(camPos, zoomPos, zoomRay, ellipsoid) {
-  // See https://en.wikipedia.org/wiki/Dragonfly#Motion_camouflage
-  // Input camPos is the current geodetic position of the camera
-  // zoomPos is the ECEF position towards which we are zooming
-  // zoomRay is the camera ray (corresponding to a screen pixel) which pointed
-  //  toward zoomPos when the zoom action began
-  // The lon, lat in camPos will be adjusted to re-align zoomPos along zoomRay
-  //  (e.g., after a change in camera altitude)
-
-  // Find the ray-sphere intersection in unrotated model space coordinates
-  const centerDist = camPos[2] + ellipsoid.meanRadius();
-  const lonLat = getCamPos(centerDist, zoomPos, zoomRay, ellipsoid);
-  if (!lonLat) return;
-
-  const dLonLat = [lonLat[0] - camPos[0], lonLat[1] - camPos[1]];
-  const limited = limitRotation(dLonLat);
-  camPos[0] += dLonLat[0];
-  camPos[1] += dLonLat[1];
-
-  return limited;
-}
-
 export function getCamPos(centerDist, zoomPos, zoomRay, ellipsoid) {
+  // See https://en.wikipedia.org/wiki/Dragonfly#Motion_camouflage
   // Returns the [lon, lat] where a camera at centerDist km from the
   // ellipsoid center will have zoomPos aligned along zoomRay
   const { abs, hypot, asin, cos, atan2 } = Math;

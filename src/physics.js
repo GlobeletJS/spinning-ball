@@ -62,7 +62,8 @@ export function initCameraDynamics(params, cursor3d) {
       const visible = projector.ecefToScreenRay(rayVec, cursor3d.zoomPosition);
       if (visible) {
         if (cursor3d.isClicked()) cursor3d.zoomRay.set(rayVec);
-        zoom(position, velocity, deltaTime);
+        const dPos = zoom(position, velocity, deltaTime);
+        position.set(position.map((c, i) => c + dPos[i]));
       } else {
         velocity.fill(0.0, 2); // TODO: is this needed? Or keep coasting?
         cursor3d.stopZoom();

@@ -1,5 +1,5 @@
 import { oscillatorChange } from "./oscillator.js";
-import { dragonflyStalk } from "./dragonfly.js";
+import { getCamPos, limitRotation } from "./dragonfly.js";
 
 export function initZoom(ellipsoid, cursor3d) {
   // Update camera altitude based on target set by mouse wheel events
@@ -16,14 +16,20 @@ export function initZoom(ellipsoid, cursor3d) {
     velocity[2] += dVz;
 
     // Scale rotational velocity by the ratio of the height change
-    const heightScale = 1 + dz / position[2];
+    const heightScale = 1.0 + dz / position[2];
     velocity[0] *= heightScale;
     velocity[1] *= heightScale;
 
-    position[2] += dz;
-    const limited = (cursor3d.zoomFixed())
-      ? dragonflyStalk(position, zoomPosition, zoomRay, ellipsoid)
-      : false;
+    const dPos = new Float64Array([0.0, 0.0, dz]);
+    const centerDist = position[2] + dz + ellipsoid.meanRadius();
+    const newRotation = (cursor3d.zoomFixed())
+      ? getCamPos(centerDist, zoomPosition, zoomRay, ellipsoid)
+      : null;
+    if (newRotation) {
+      dPos[0] = newRotation[0] - position[0];
+      dPos[1] = newRotation[1] - position[1];
+    }
+    const limited = limitRotation(dPos);
 
     const rotating = cursor3d.isClicked() || limited;
     const energy = 0.5 * velocity[2] ** 2 + // Kinetic
@@ -33,5 +39,7 @@ export function initZoom(ellipsoid, cursor3d) {
       velocity[2] = 0.0;
       stopZoom();
     }
+
+    return dPos;
   };
 }

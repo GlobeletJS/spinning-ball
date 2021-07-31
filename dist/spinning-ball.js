@@ -938,30 +938,8 @@ function oscillatorChange(x, v, t, w0) {
   return [dx, dv];
 }
 
-// TODO: Clean this up. Just use difference of lat/lon under ray?
-function dragonflyStalk(camPos, zoomPos, zoomRay, ellipsoid) {
-  // See https://en.wikipedia.org/wiki/Dragonfly#Motion_camouflage
-  // Input camPos is the current geodetic position of the camera
-  // zoomPos is the ECEF position towards which we are zooming
-  // zoomRay is the camera ray (corresponding to a screen pixel) which pointed
-  //  toward zoomPos when the zoom action began
-  // The lon, lat in camPos will be adjusted to re-align zoomPos along zoomRay
-  //  (e.g., after a change in camera altitude)
-
-  // Find the ray-sphere intersection in unrotated model space coordinates
-  const centerDist = camPos[2] + ellipsoid.meanRadius();
-  const lonLat = getCamPos(centerDist, zoomPos, zoomRay, ellipsoid);
-  if (!lonLat) return;
-
-  const dLonLat = [lonLat[0] - camPos[0], lonLat[1] - camPos[1]];
-  const limited = limitRotation(dLonLat);
-  camPos[0] += dLonLat[0];
-  camPos[1] += dLonLat[1];
-
-  return limited;
-}
-
 function getCamPos(centerDist, zoomPos, zoomRay, ellipsoid) {
+  // See https://en.wikipedia.org/wiki/Dragonfly#Motion_camouflage
   // Returns the [lon, lat] where a camera at centerDist km from the
   // ellipsoid center will have zoomPos aligned along zoomRay
   const { abs, hypot, asin, cos, atan2 } = Math;
@@ -1021,14 +999,20 @@ function initZoom(ellipsoid, cursor3d) {
     velocity[2] += dVz;
 
     // Scale rotational velocity by the ratio of the height change
-    const heightScale = 1 + dz / position[2];
+    const heightScale = 1.0 + dz / position[2];
     velocity[0] *= heightScale;
     velocity[1] *= heightScale;
 
-    position[2] += dz;
-    const limited = (cursor3d.zoomFixed())
-      ? dragonflyStalk(position, zoomPosition, zoomRay, ellipsoid)
-      : false;
+    const dPos = new Float64Array([0.0, 0.0, dz]);
+    const centerDist = position[2] + dz + ellipsoid.meanRadius();
+    const newRotation = (cursor3d.zoomFixed())
+      ? getCamPos(centerDist, zoomPosition, zoomRay, ellipsoid)
+      : null;
+    if (newRotation) {
+      dPos[0] = newRotation[0] - position[0];
+      dPos[1] = newRotation[1] - position[1];
+    }
+    const limited = limitRotation(dPos);
 
     const rotating = cursor3d.isClicked() || limited;
     const energy = 0.5 * velocity[2] ** 2 + // Kinetic
@@ -1038,6 +1022,8 @@ function initZoom(ellipsoid, cursor3d) {
       velocity[2] = 0.0;
       stopZoom();
     }
+
+    return dPos;
   };
 }
 
@@ -1191,7 +1177,8 @@ function initCameraDynamics(params, cursor3d) {
       const visible = projector.ecefToScreenRay(rayVec, cursor3d.zoomPosition);
       if (visible) {
         if (cursor3d.isClicked()) cursor3d.zoomRay.set(rayVec);
-        zoom(position, velocity, deltaTime);
+        const dPos = zoom(position, velocity, deltaTime);
+        position.set(position.map((c, i) => c + dPos[i]));
       } else {
         velocity.fill(0.0, 2); // TODO: is this needed? Or keep coasting?
         cursor3d.stopZoom();
