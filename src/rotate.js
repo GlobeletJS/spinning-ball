@@ -1,5 +1,5 @@
 import * as vec3 from "gl-matrix/vec3";
-import { updateOscillator } from "./oscillator.js";
+import { oscillatorChange } from "./oscillator.js";
 
 export function initRotation(ellipsoid, cursor3d) {
   // Update rotations and rotation velocities based on forces applied
@@ -8,11 +8,7 @@ export function initRotation(ellipsoid, cursor3d) {
   const extension = new Float64Array(3);
   const { cursorPosition, clickPosition } = cursor3d;
 
-  return function(position, velocity, deltaTime) {
-    // Input mouse3d is a pointer to a mouse object
-    // Inputs position, velocity are pointers to vec3s
-    // Input deltaTime is a primitive floating point value
-
+  return function(position, velocity, dt) {
     // Find the displacement of the clicked position on the globe
     // from the current mouse position
     vec3.subtract(extension, cursorPosition, clickPosition);
@@ -20,10 +16,15 @@ export function initRotation(ellipsoid, cursor3d) {
     // Convert to changes in longitude, latitude, and altitude
     ellipsoid.ecefToDeltaLonLatAlt(extension, extension,
       clickPosition, position);
-    // Ignore altitude change for now
-    extension[2] = 0.0;
 
-    updateOscillator(position, velocity, extension, w0, deltaTime, 0, 1);
+    const [x, y] = extension;
+    const [dx, dVx] = oscillatorChange(x, velocity[0], dt, w0);
+    const [dy, dVy] = oscillatorChange(y, velocity[1], dt, w0);
+
+    velocity[0] += dVx;
+    velocity[1] += dVy;
+    position[0] += dx;
+    position[1] += dy;
     return true;   // Position changed, need to re-render
   };
 }
@@ -34,9 +35,7 @@ export function initCoast(ellipsoid) {
   const radius = ellipsoid.meanRadius();
   const minSpeed = 0.03;
 
-  return function(position, velocity, deltaTime) {
-    // Inputs rotation, rotationVel are pointers to 3-element arrays
-    // Input deltaTime is a primitive value (floating point)
+  return function(position, velocity, dt) {
     // TODO: switch to exact formula? (not finite difference)
 
     if (vec3.length(velocity) < minSpeed * position[2] / radius) {
@@ -46,13 +45,13 @@ export function initCoast(ellipsoid) {
     }
 
     // Adjust previous velocities for damping over the past time interval
-    const dvDamp = -1.0 * damping * deltaTime;
+    const dvDamp = -1.0 * damping * dt;
     velocity[0] += velocity[0] * dvDamp;
     velocity[1] += velocity[1] * dvDamp;
 
     // Update rotations
-    position[0] += velocity[0] * deltaTime;
-    position[1] += velocity[1] * deltaTime;
+    position[0] += velocity[0] * dt;
+    position[1] += velocity[1] * dt;
     return true;    // Position changed, need to re-render
   };
 }

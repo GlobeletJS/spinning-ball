@@ -927,19 +927,6 @@ function initECEF(ellipsoid, initialPos) {
   }
 }
 
-function updateOscillator(pos, vel, ext, w0, dt, i1, i2) {
-  // Inputs/outputs pos, vel are pointers to arrays
-  // Inputs w0, t are primitive floating point values, indicating the
-  //   natural frequency of the oscillator and the time step
-  // Inputs i1, i2 are primitive integer values, indicating components to update
-
-  for (let i = i1; i <= i2; i++) {
-    const [dx, dv] = oscillatorChange(ext[i], vel[i], dt, w0);
-    vel[i] += dv;
-    pos[i] += dx;
-  }
-}
-
 function oscillatorChange(x, v, t, w0) {
   // For a critically damped oscillator with natural frequency w0, find
   // the change in position x and velocity v over timestep t.  See
@@ -1020,40 +1007,34 @@ function limitRotation(dPos) {
 }
 
 function initZoom(ellipsoid, cursor3d) {
-  const { zoomTarget, zoomPosition, zoomRay, stopZoom } = cursor3d;
-
   // Update camera altitude based on target set by mouse wheel events
   //  or two-finger pinch movements
+  const { zoomTarget, zoomPosition, zoomRay, stopZoom } = cursor3d;
+
   const w0 = 14.14; // Natural frequency of oscillator
   const minVelocity = 0.001;
+  const minEnergy = 0.5 * minVelocity ** 2; // ASSUME mass == 1
 
-  // NOTE: everything below ASSUMES mass = 1
-  const minEnergy = 0.5 * minVelocity * minVelocity;
-  const dPos = new Float64Array(3);
+  return function(position, velocity, dt) {
+    const stretch = position[2] - zoomTarget();
+    const [dz, dVz] = oscillatorChange(stretch, velocity[2], dt, w0);
+    velocity[2] += dVz;
 
-  return function(position, velocity, deltaTime) {
-    const oldAltitude = position[2];
-    const targetHeight = zoomTarget();
+    // Scale rotational velocity by the ratio of the height change
+    const heightScale = 1 + dz / position[2];
+    velocity[0] *= heightScale;
+    velocity[1] *= heightScale;
 
-    dPos[2] = position[2] - targetHeight;
-    updateOscillator(position, velocity, dPos, w0, deltaTime, 2, 2);
-
+    position[2] += dz;
     const limited = (cursor3d.zoomFixed())
       ? dragonflyStalk(position, zoomPosition, zoomRay, ellipsoid)
       : false;
 
-    // Scale rotational velocity by the ratio of the height change
-    const heightScale = position[2] / oldAltitude;
-    velocity[0] *= heightScale;
-    velocity[1] *= heightScale;
-
-    if (cursor3d.isClicked() || limited) return;
-
+    const rotating = cursor3d.isClicked() || limited;
+    const energy = 0.5 * velocity[2] ** 2 + // Kinetic
+      0.5 * (w0 * (stretch + dz)) ** 2;     // Potential
     // Stop if we are already near steady state
-    const kineticE = 0.5 * velocity[2] ** 2;
-    const extension = position[2] - targetHeight;
-    const potentialE = 0.5 * (w0 * extension) ** 2;
-    if (kineticE + potentialE < minEnergy * targetHeight) {
+    if (!rotating && energy < minEnergy * zoomTarget()) {
       velocity[2] = 0.0;
       stopZoom();
     }
@@ -1067,11 +1048,7 @@ function initRotation(ellipsoid, cursor3d) {
   const extension = new Float64Array(3);
   const { cursorPosition, clickPosition } = cursor3d;
 
-  return function(position, velocity, deltaTime) {
-    // Input mouse3d is a pointer to a mouse object
-    // Inputs position, velocity are pointers to vec3s
-    // Input deltaTime is a primitive floating point value
-
+  return function(position, velocity, dt) {
     // Find the displacement of the clicked position on the globe
     // from the current mouse position
     subtract(extension, cursorPosition, clickPosition);
@@ -1079,10 +1056,15 @@ function initRotation(ellipsoid, cursor3d) {
     // Convert to changes in longitude, latitude, and altitude
     ellipsoid.ecefToDeltaLonLatAlt(extension, extension,
       clickPosition, position);
-    // Ignore altitude change for now
-    extension[2] = 0.0;
 
-    updateOscillator(position, velocity, extension, w0, deltaTime, 0, 1);
+    const [x, y] = extension;
+    const [dx, dVx] = oscillatorChange(x, velocity[0], dt, w0);
+    const [dy, dVy] = oscillatorChange(y, velocity[1], dt, w0);
+
+    velocity[0] += dVx;
+    velocity[1] += dVy;
+    position[0] += dx;
+    position[1] += dy;
     return true;   // Position changed, need to re-render
   };
 }
@@ -1093,9 +1075,7 @@ function initCoast(ellipsoid) {
   const radius = ellipsoid.meanRadius();
   const minSpeed = 0.03;
 
-  return function(position, velocity, deltaTime) {
-    // Inputs rotation, rotationVel are pointers to 3-element arrays
-    // Input deltaTime is a primitive value (floating point)
+  return function(position, velocity, dt) {
     // TODO: switch to exact formula? (not finite difference)
 
     if (length(velocity) < minSpeed * position[2] / radius) {
@@ -1105,13 +1085,13 @@ function initCoast(ellipsoid) {
     }
 
     // Adjust previous velocities for damping over the past time interval
-    const dvDamp = -1.0 * damping * deltaTime;
+    const dvDamp = -1.0 * damping * dt;
     velocity[0] += velocity[0] * dvDamp;
     velocity[1] += velocity[1] * dvDamp;
 
     // Update rotations
-    position[0] += velocity[0] * deltaTime;
-    position[1] += velocity[1] * deltaTime;
+    position[0] += velocity[0] * dt;
+    position[1] += velocity[1] * dt;
     return true;    // Position changed, need to re-render
   };
 }
