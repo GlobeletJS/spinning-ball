@@ -1,26 +1,22 @@
 import { setParams } from "./params.js";
 import { initCamera } from "./camera.js";
-import { initTouch } from "touch-sampler";
 import { initCursor3d } from "./cursor3d.js";
 import { initCameraDynamics } from "./dynamics.js";
 
 export function init(userParams) {
   const params = setParams(userParams);
-  const { ellipsoid, display, view, unitConversion } = params;
+  const { ellipsoid, view, unitConversion } = params;
 
-  const camera = initCamera(params); // Transforms related to view position
-  const cursor2d = initTouch(display); // Event handlers, position tracking
-  const cursor3d = initCursor3d(params, camera); // Maps cursor2d to ellipsoid
-
-  const dynamics = initCameraDynamics(ellipsoid, camera, cursor3d);
-  let camMoving, cursorChanged;
+  const camera = initCamera(params);
+  const cursor = initCursor3d(params, camera);
+  const dynamics = initCameraDynamics(ellipsoid, camera, cursor);
 
   const cursorTmp = new Float64Array(3);
   const cursorPos = new Float64Array(3);
+  let camMoving, cursorChanged;
 
   return {
     view,
-
     radius: ellipsoid.meanRadius,
     lonLatToScreenXY: camera.lonLatToScreenXY,
 
@@ -28,9 +24,9 @@ export function init(userParams) {
     cameraPos: camera.position,
 
     cursorPos: () => cursorPos.slice(),
-    isOnScene: cursor3d.isOnScene,
+    isOnScene: cursor.isOnScene,
     cursorChanged: () => cursorChanged,
-    wasTapped: cursor3d.wasTapped,
+    wasTapped: cursor.wasTapped,
 
     update,
   };
@@ -40,12 +36,12 @@ export function init(userParams) {
     const resized = view.changed();
 
     camMoving = dynamics.update(time) || resized;
-    cursorChanged = cursor2d.hasChanged() || camMoving || cursor3d.wasTapped();
-    if (cursorChanged) cursor3d.update(cursor2d, dynamics);
+    cursorChanged = cursor.hasChanged() || camMoving;
+    if (cursorChanged) cursor.update(camera.position(), dynamics);
 
-    if (cursor3d.isOnScene()) {
+    if (cursor.isOnScene()) {
       // Update cursor longitude/latitude/altitude
-      ellipsoid.ecef2geocentric(cursorTmp, cursor3d.cursorPosition);
+      ellipsoid.ecef2geocentric(cursorTmp, cursor.cursorPosition);
       cursorPos.set(unitConversion(cursorTmp));
     }
 

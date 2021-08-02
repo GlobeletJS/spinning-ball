@@ -1071,15 +1071,33 @@ function transformMat4(out, a, m) {
   };
 })();
 
+function initCursor2d(params, camera) {
+  const { display, view, ellipsoid } = params;
+
+  const cursor2d = initTouch(display);
+
+  const screenRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
+  const ecefRay = new Float64Array(4);
+
+  function project(cursorPosition) {
+    view.getRayParams(screenRay, cursor2d.x(), cursor2d.y());
+    transformMat4(ecefRay, screenRay, camera.rotation);
+    // NOTE: cursorPosition will be overwritten!
+    return ellipsoid.shoot(cursorPosition, camera.ecefPos, ecefRay);
+  }
+
+  return Object.assign(cursor2d, { project, screenRay });
+}
+
 function initCursor3d(params, camera) {
-  const { view, ellipsoid, initialPosition, minHeight, maxHeight } = params;
+  const { initialPosition, minHeight, maxHeight } = params;
+
+  const cursor2d = initCursor2d(params, camera);
 
   // Cursor positions are computed & stored in ECEF coordinates (x,y,z)
   const cursorPosition = new Float64Array(3);
   const clickPosition = new Float64Array(3);
   const zoomPosition = new Float64Array(3);
-  // Screen ray for the 2D cursor position
-  const cursorRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
   // Track target screen ray and altitude for zooming
   const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
   let targetHeight = initialPosition[2];
@@ -1091,9 +1109,6 @@ function initCursor3d(params, camera) {
   let wasTapped = false;
   let zoomFix = false; // Whether to fix the screen position of the zoom
 
-  // Local working vector
-  const ecefRay = new Float64Array(4);
-
   return {
     // POINTERs to local arrays. WARNING: local vals can be changed outside!
     cursorPosition,
@@ -1102,6 +1117,7 @@ function initCursor3d(params, camera) {
     zoomRay,
 
     // Methods to report local state
+    hasChanged: () => cursor2d.hasChanged() || wasTapped,
     isOnScene: () => onScene,
     isClicked: () => clicked,
     wasTapped: () => wasTapped,
@@ -1114,13 +1130,8 @@ function initCursor3d(params, camera) {
     stopZoom,
   };
 
-  function update(cursor2d, dynamics) {
-    // Get screen ray in model coordinates (ECEF)
-    view.getRayParams(cursorRay, cursor2d.x(), cursor2d.y());
-    transformMat4(ecefRay, cursorRay, camera.rotation);
-
-    // Find intersection of ray with ellipsoid
-    onScene = ellipsoid.shoot(cursorPosition, camera.ecefPos, ecefRay);
+  function update(position, dynamics) {
+    onScene = cursor2d.project(cursorPosition);
     if (!onScene) {
       clicked = zoomFix = false;
       return cursor2d.reset();
@@ -1133,7 +1144,7 @@ function initCursor3d(params, camera) {
       clicked = true;
       clickPosition.set(cursorPosition);
       // Assuming this is a click or single touch, stop zooming
-      stopZoom(camera.position()[2]);
+      stopZoom(position[2]);
       // Also stop any coasting in the altitude direction
       dynamics.stopZoom();
       // If this was actually a two-touch zoom, then cursor2d.zoomStarted()...
@@ -1142,7 +1153,7 @@ function initCursor3d(params, camera) {
     if (cursor2d.zoomStarted()) {
       zooming = zoomFix = true;
       zoomPosition.set(cursorPosition);
-      zoomRay.set(cursorRay);
+      zoomRay.set(cursor2d.screenRay);
       if (!clicked) dynamics.stopCoast();
     }
 
@@ -1366,21 +1377,18 @@ function initCameraDynamics(ellipsoid, camera, cursor3d) {
 
 function init(userParams) {
   const params = setParams(userParams);
-  const { ellipsoid, display, view, unitConversion } = params;
+  const { ellipsoid, view, unitConversion } = params;
 
-  const camera = initCamera(params); // Transforms related to view position
-  const cursor2d = initTouch(display); // Event handlers, position tracking
-  const cursor3d = initCursor3d(params, camera); // Maps cursor2d to ellipsoid
-
-  const dynamics = initCameraDynamics(ellipsoid, camera, cursor3d);
-  let camMoving, cursorChanged;
+  const camera = initCamera(params);
+  const cursor = initCursor3d(params, camera);
+  const dynamics = initCameraDynamics(ellipsoid, camera, cursor);
 
   const cursorTmp = new Float64Array(3);
   const cursorPos = new Float64Array(3);
+  let camMoving, cursorChanged;
 
   return {
     view,
-
     radius: ellipsoid.meanRadius,
     lonLatToScreenXY: camera.lonLatToScreenXY,
 
@@ -1388,9 +1396,9 @@ function init(userParams) {
     cameraPos: camera.position,
 
     cursorPos: () => cursorPos.slice(),
-    isOnScene: cursor3d.isOnScene,
+    isOnScene: cursor.isOnScene,
     cursorChanged: () => cursorChanged,
-    wasTapped: cursor3d.wasTapped,
+    wasTapped: cursor.wasTapped,
 
     update,
   };
@@ -1400,12 +1408,12 @@ function init(userParams) {
     const resized = view.changed();
 
     camMoving = dynamics.update(time) || resized;
-    cursorChanged = cursor2d.hasChanged() || camMoving || cursor3d.wasTapped();
-    if (cursorChanged) cursor3d.update(cursor2d, dynamics);
+    cursorChanged = cursor.hasChanged() || camMoving;
+    if (cursorChanged) cursor.update(camera.position(), dynamics);
 
-    if (cursor3d.isOnScene()) {
+    if (cursor.isOnScene()) {
       // Update cursor longitude/latitude/altitude
-      ellipsoid.ecef2geocentric(cursorTmp, cursor3d.cursorPosition);
+      ellipsoid.ecef2geocentric(cursorTmp, cursor.cursorPosition);
       cursorPos.set(unitConversion(cursorTmp));
     }
 
