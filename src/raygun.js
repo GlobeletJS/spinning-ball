@@ -1,16 +1,12 @@
 import * as vec3 from "gl-matrix/vec3";
 
 export function initRayGun(M, meanRadius) {
-  const { sqrt } = Math;
-
+  // All method arguments are vec3s in ECEF coordinates
   return { shoot: shootEllipsoid, findHorizon };
 
   function shootEllipsoid(intersection, camera, rayVec) {
-    // Inputs camera, rayVec are pointers to vec3s indicating the
-    //   position of the camera and the direction of a ray shot from the camera,
-    //   both in earth-centered earth-fixed (ECEF) coordinates
-    // Output intersection is a pointer to a vec3 in ECEF coordinates indicating
-    //   the position of the intersection of the ray with the ellipsoid
+    // Input rayVec: direction of a ray shot from camera
+    // Outputs position of the intersection of the ray with the ellipsoid
 
     // Math: solving for values t where || M (camera + t*rayVec) || = 1,
     const mCam = M(camera);
@@ -30,7 +26,7 @@ export function initRayGun(M, meanRadius) {
     // unit sphere: minimize a*t^2 + b*t + c (get zero of derivative)
     // NOTE: NOT the closest point on the ellipsoid! And NOT on the horizon!
     const t = (intersected)
-      ? (-b - sqrt(discriminant)) / (2.0 * a)
+      ? (-b - Math.sqrt(discriminant)) / (2.0 * a)
       : -0.5 * b / a;
 
     // NOTE: rayVec is actually a vec4
@@ -56,7 +52,7 @@ export function initRayGun(M, meanRadius) {
 
     // 3. Find the error of the length of the perpendicular component
     const sinAlpha = meanRadius / vec3.length(camera); // sin(angle to horizon)
-    const tanAlpha = sinAlpha / sqrt(1.0 - sinAlpha * sinAlpha);
+    const tanAlpha = sinAlpha / Math.sqrt(1.0 - sinAlpha * sinAlpha);
     const dPerp = -paraLength * tanAlpha - perpLength;
 
     // 4. Find the corrected rayVec

@@ -7,10 +7,11 @@ export function initCursor3d(params, camera) {
   const cursorPosition = new Float64Array(3);
   const clickPosition = new Float64Array(3);
   const zoomPosition = new Float64Array(3);
-  // Derived geocentric longitude, latitude, altitude
-  const cursorLonLat = new Float64Array(3);
   // Screen ray for the 2D cursor position
   const cursorRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
+  // Track target screen ray and altitude for zooming
+  const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
+  let targetHeight = initialPosition[2];
 
   // Flags about the cursor state
   let onScene = false;
@@ -19,17 +20,12 @@ export function initCursor3d(params, camera) {
   let wasTapped = false;
   let zoomFix = false; // Whether to fix the screen position of the zoom
 
-  // Track target altitude for zooming
-  let targetHeight = initialPosition[2];
-  // Target screen ray for zooming
-  const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
   // Local working vector
   const ecefRay = new Float64Array(4);
 
   return {
     // POINTERs to local arrays. WARNING: local vals can be changed outside!
     cursorPosition,
-    cursorLonLat,
     clickPosition,
     zoomPosition,
     zoomRay,
@@ -58,9 +54,6 @@ export function initCursor3d(params, camera) {
       clicked = zoomFix = false;
       return cursor2d.reset();
     }
-
-    // Update cursor longitude/latitude
-    ellipsoid.ecef2geocentric(cursorLonLat, cursorPosition);
 
     if (cursor2d.touchEnded()) clicked = zoomFix = false;
     wasTapped = cursor2d.tapped();

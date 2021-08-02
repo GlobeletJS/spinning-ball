@@ -286,16 +286,12 @@ function transformMat3(out, a, m) {
 })();
 
 function initRayGun(M, meanRadius) {
-  const { sqrt } = Math;
-
+  // All method arguments are vec3s in ECEF coordinates
   return { shoot: shootEllipsoid, findHorizon };
 
   function shootEllipsoid(intersection, camera, rayVec) {
-    // Inputs camera, rayVec are pointers to vec3s indicating the
-    //   position of the camera and the direction of a ray shot from the camera,
-    //   both in earth-centered earth-fixed (ECEF) coordinates
-    // Output intersection is a pointer to a vec3 in ECEF coordinates indicating
-    //   the position of the intersection of the ray with the ellipsoid
+    // Input rayVec: direction of a ray shot from camera
+    // Outputs position of the intersection of the ray with the ellipsoid
 
     // Math: solving for values t where || M (camera + t*rayVec) || = 1,
     const mCam = M(camera);
@@ -315,7 +311,7 @@ function initRayGun(M, meanRadius) {
     // unit sphere: minimize a*t^2 + b*t + c (get zero of derivative)
     // NOTE: NOT the closest point on the ellipsoid! And NOT on the horizon!
     const t = (intersected)
-      ? (-b - sqrt(discriminant)) / (2.0 * a)
+      ? (-b - Math.sqrt(discriminant)) / (2.0 * a)
       : -0.5 * b / a;
 
     // NOTE: rayVec is actually a vec4
@@ -341,7 +337,7 @@ function initRayGun(M, meanRadius) {
 
     // 3. Find the error of the length of the perpendicular component
     const sinAlpha = meanRadius / length(camera); // sin(angle to horizon)
-    const tanAlpha = sinAlpha / sqrt(1.0 - sinAlpha * sinAlpha);
+    const tanAlpha = sinAlpha / Math.sqrt(1.0 - sinAlpha * sinAlpha);
     const dPerp = -paraLength * tanAlpha - perpLength;
 
     // 4. Find the corrected rayVec
@@ -484,6 +480,9 @@ function setParams(params) {
   if (!(display instanceof Element)) fail("missing display element");
 
   if (!["degrees", "radians"].includes(units)) fail("invalid units");
+  const unitConversion = (units === "degrees")
+    ? (c) => ([c[0] / degrees, c[1] / degrees, c[2]])
+    : (c) => c;
 
   // Center must be a valid coordinate in the given units
   if (!checkCoords(center, 2)) fail("invalid center array");
@@ -503,7 +502,7 @@ function setParams(params) {
   }
 
   return {
-    ellipsoid, display, units,
+    ellipsoid, display, units, unitConversion,
     initialPosition: [cx, cy, altitude],
     minHeight, maxHeight,
     // view object computes ray parameters at points on the display
@@ -692,14 +691,12 @@ function initECEF(ellipsoid, initialPos) {
   // coordinates and a rotation matrix
   // These are suitable for rendering Relative To Eye (RTE), as described in
   // P Cozzi, 3D Engine Design for Virtual Globes, www.virtualglobebook.com
+  const { min, max, PI } = Math;
   const position = new Float64Array([0.0, 0.0, 0.0, 1.0]);
   const rotation = create$1();  // Note: single precision!! (Float32Array)
   const inverse  = create$1();
 
-  const { min, max, PI } = Math;
-
-  // Set initial values
-  update(initialPos);
+  update(initialPos); // Set initial values
 
   return {
     position, // WARNING: Exposes local array to changes from outside
@@ -1081,10 +1078,11 @@ function initCursor3d(params, camera) {
   const cursorPosition = new Float64Array(3);
   const clickPosition = new Float64Array(3);
   const zoomPosition = new Float64Array(3);
-  // Derived geocentric longitude, latitude, altitude
-  const cursorLonLat = new Float64Array(3);
   // Screen ray for the 2D cursor position
   const cursorRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
+  // Track target screen ray and altitude for zooming
+  const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
+  let targetHeight = initialPosition[2];
 
   // Flags about the cursor state
   let onScene = false;
@@ -1093,17 +1091,12 @@ function initCursor3d(params, camera) {
   let wasTapped = false;
   let zoomFix = false; // Whether to fix the screen position of the zoom
 
-  // Track target altitude for zooming
-  let targetHeight = initialPosition[2];
-  // Target screen ray for zooming
-  const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
   // Local working vector
   const ecefRay = new Float64Array(4);
 
   return {
     // POINTERs to local arrays. WARNING: local vals can be changed outside!
     cursorPosition,
-    cursorLonLat,
     clickPosition,
     zoomPosition,
     zoomRay,
@@ -1132,9 +1125,6 @@ function initCursor3d(params, camera) {
       clicked = zoomFix = false;
       return cursor2d.reset();
     }
-
-    // Update cursor longitude/latitude
-    ellipsoid.ecef2geocentric(cursorLonLat, cursorPosition);
 
     if (cursor2d.touchEnded()) clicked = zoomFix = false;
     wasTapped = cursor2d.tapped();
@@ -1376,32 +1366,28 @@ function initCameraDynamics(ellipsoid, camera, cursor3d) {
 
 function init(userParams) {
   const params = setParams(userParams);
-  const { ellipsoid, display, view } = params;
+  const { ellipsoid, display, view, unitConversion } = params;
 
-  // Initialize camera: transforms related to view position
-  const camera = initCamera(params);
+  const camera = initCamera(params); // Transforms related to view position
+  const cursor2d = initTouch(display); // Event handlers, position tracking
+  const cursor3d = initCursor3d(params, camera); // Maps cursor2d to ellipsoid
 
-  // Add event handlers and position tracking to display element
-  const cursor2d = initTouch(display);
-  // Initialize interaction with the ellipsoid via the mouse and screen
-  const cursor3d = initCursor3d(params, camera);
-
-  // Initialize camera dynamics: time, position, velocity, etc.
   const dynamics = initCameraDynamics(ellipsoid, camera, cursor3d);
-
   let camMoving, cursorChanged;
+
+  const cursorTmp = new Float64Array(3);
+  const cursorPos = new Float64Array(3);
 
   return {
     view,
 
     radius: ellipsoid.meanRadius,
+    lonLatToScreenXY: camera.lonLatToScreenXY,
 
     camMoving: () => camMoving,
     cameraPos: camera.position,
 
-    lonLatToScreenXY: camera.lonLatToScreenXY,
-
-    cursorPos: cursor3d.cursorLonLat,
+    cursorPos: () => cursorPos.slice(),
     isOnScene: cursor3d.isOnScene,
     cursorChanged: () => cursorChanged,
     wasTapped: cursor3d.wasTapped,
@@ -1410,16 +1396,18 @@ function init(userParams) {
   };
 
   function update(time) {
-    // Input time is a primitive floating point value representing the
-    // time this function was called, in seconds
-
-    // Check for changes in display size
+    // Input represents the time this function was called, in seconds
     const resized = view.changed();
 
-    // Update camera dynamics, and 3D cursor position (if necessary)
     camMoving = dynamics.update(time) || resized;
     cursorChanged = cursor2d.hasChanged() || camMoving || cursor3d.wasTapped();
     if (cursorChanged) cursor3d.update(cursor2d, dynamics);
+
+    if (cursor3d.isOnScene()) {
+      // Update cursor longitude/latitude/altitude
+      ellipsoid.ecef2geocentric(cursorTmp, cursor3d.cursorPosition);
+      cursorPos.set(unitConversion(cursorTmp));
+    }
 
     return camMoving;
   }

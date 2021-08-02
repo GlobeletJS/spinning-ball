@@ -5,14 +5,12 @@ export function initECEF(ellipsoid, initialPos) {
   // coordinates and a rotation matrix
   // These are suitable for rendering Relative To Eye (RTE), as described in
   // P Cozzi, 3D Engine Design for Virtual Globes, www.virtualglobebook.com
+  const { min, max, PI } = Math;
   const position = new Float64Array([0.0, 0.0, 0.0, 1.0]);
   const rotation = mat4.create();  // Note: single precision!! (Float32Array)
   const inverse  = mat4.create();
 
-  const { min, max, PI } = Math;
-
-  // Set initial values
-  update(initialPos);
+  update(initialPos); // Set initial values
 
   return {
     position, // WARNING: Exposes local array to changes from outside

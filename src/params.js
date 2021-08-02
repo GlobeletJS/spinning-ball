@@ -20,6 +20,9 @@ export function setParams(params) {
   if (!(display instanceof Element)) fail("missing display element");
 
   if (!["degrees", "radians"].includes(units)) fail("invalid units");
+  const unitConversion = (units === "degrees")
+    ? (c) => ([c[0] / degrees, c[1] / degrees, c[2]])
+    : (c) => c;
 
   // Center must be a valid coordinate in the given units
   if (!checkCoords(center, 2)) fail("invalid center array");
@@ -39,7 +42,7 @@ export function setParams(params) {
   }
 
   return {
-    ellipsoid, display, units,
+    ellipsoid, display, units, unitConversion,
     initialPosition: [cx, cy, altitude],
     minHeight, maxHeight,
     // view object computes ray parameters at points on the display

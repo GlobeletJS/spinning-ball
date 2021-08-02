@@ -25,14 +25,26 @@ simple D3 renderer.
 
 [d3-world-atlas example]: https://globeletjs.github.io/spinning-ball/examples/d3-world-atlas/index.html
 
+## Installation
+spinning-ball is provided as an ESM import:
+```javascript
+import * as spinningBall from 'spinning-ball';
+```
+
 ## Initialization
-spinningBall.init takes three parameters:
-- display: An HTML element where the globe will be represented, and where the
-  user's client will generate interaction events
+spinningBall.init takes a parameters object with the following properties:
+- display (REQUIRED): An HTML element where the globe will be represented, and 
+  where the user's client will generate interaction events
+- units: Specify "degrees" or "radians" as the units of any supplied or
+  returned longitude and latitude coordinates. Default: "degrees"
 - center: A 2-element array of [longitude, latitude] in degrees, indicating
-  the initial horizontal position of the camera
+  the initial horizontal position of the camera. Default: [0.0, 0.0]
 - altitude: A floating point value indicating the initial altitude of the
-  camera in kilometers
+  camera in kilometers. Default: 4 * earthRadius (4 * 6371.0)
+- minHeight: The minimum height of the camera, in kilometers.
+  Default: 0.0001 * earthRadius
+- maxHeight: The maximum height of the camera, in kilometers.
+  Default: 8.0 * earthRadius 
 
 ## API
 Initialization returns an object with the following properties and methods:
@@ -51,13 +63,11 @@ Initialization returns an object with the following properties and methods:
   any change in the position or status of the cursor relative to the globe
 - wasTapped(): Returns a (Boolean) flag indicating whether the globe has been
   tapped or clicked since the last update
-- update(time, resized): Updates the position and velocity of the camera,
-  taking into account any current velocities, and computing new accelerations
-  induced by mouse or touch interactions.
+- update(time): Updates the position and velocity of the camera, taking into
+  account any current velocities, and computing new accelerations induced by
+  mouse or touch interactions.
   - Input time (floating point) is the current time in seconds. If using
     requestAnimationFrame, its argument should be multiplied by 0.001
-  - Input resized (Boolean) is a flag indicating whether the display element
-    has been resized since the last call to update()
   - Return value is a flag indicating whether the display should be
     re-rendered, due to motion of the globe or resizing of the display
 
