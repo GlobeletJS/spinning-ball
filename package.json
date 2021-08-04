@@ -42,6 +42,6 @@
   "dependencies": {
     "gl-matrix": "^3.1.0",
     "touch-sampler": "^0.0.3",
-    "yawgl": "^0.3.2"
+    "yawgl": "^0.3.3"
   }
 }

@@ -3,8 +3,8 @@ function initView(porthole, fieldOfView) {
   // fieldOfView is the vertical view angle range in degrees (floating point)
 
   // Compute values for transformation between the 3D world and the 2D porthole
-  var portRect, width, height, aspect;
-  var tanFOV = Math.tan(fieldOfView * Math.PI / 180.0 / 2.0);
+  let portRect, width, height, aspect;
+  const tanFOV = Math.tan(fieldOfView * Math.PI / 180.0 / 2.0);
   const maxRay = [];
 
   computeRayParams(); // Set initial values
@@ -51,14 +51,14 @@ function initView(porthole, fieldOfView) {
     // right pixel -- they are one more than the clientX/Y values.
     // Thus the number of pixels in the box is given by
     //    porthole.clientWidth = rect.right - rect.left  (NO +1 !!)
-    var x = clientX - portRect.left;
-    var y = portRect.bottom - clientY - 1; // Flip sign to make +y upward
+    const x = clientX - portRect.left;
+    const y = portRect.bottom - clientY - 1; // Flip sign to make +y upward
 
     // Normalized distances from center of box. We normalize by pixel DISTANCE
     // rather than pixel count, to ensure we get -1 and +1 at the ends.
     // (Confirm by considering the 2x2 case)
-    var xratio = 2 * x / (width - 1) - 1;
-    var yratio = 2 * y / (height - 1) - 1;
+    const xratio = 2 * x / (width - 1) - 1;
+    const yratio = 2 * y / (height - 1) - 1;
 
     rayVec[0] = xratio * maxRay[0];
     rayVec[1] = yratio * maxRay[1];
