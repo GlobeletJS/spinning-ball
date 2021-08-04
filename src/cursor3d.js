@@ -22,6 +22,7 @@ export function initCursor3d(params, camera) {
 
   return {
     // POINTERs to local arrays. WARNING: local vals can be changed outside!
+    cursorLonLat: cursor2d.cursorLonLat,
     cursorPosition,
     clickPosition,
     zoomPosition,
@@ -56,8 +57,7 @@ export function initCursor3d(params, camera) {
       clickPosition.set(cursorPosition);
       // Assuming this is a click or single touch, stop zooming
       stopZoom(position[2]);
-      // Also stop any coasting in the altitude direction
-      dynamics.stopZoom();
+      dynamics.stopZoom(); // Stops coasting in altitude direction
       // If this was actually a two-touch zoom, then cursor2d.zoomStarted()...
     }
 

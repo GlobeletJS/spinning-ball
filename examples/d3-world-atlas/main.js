@@ -9,8 +9,8 @@ import * as spinningBall from "../../";
 const map50mURL = "./50m.json";
 const map110mURL = "./110m.json";
 
-const center = [-95.3656049, 29.7537002]; // Longitude, latitude (degrees)
-const altitude = 11000;
+// Initial [longitude (degrees), latitude (degrees), altitude (kilometers)]
+const position = [-95.3656049, 29.7537002, 11000];
 const fieldOfView = 25.0;
 const degrees = 180 / Math.PI;
 
@@ -25,7 +25,7 @@ export function main() {
   // Save default styles
   context.save();
 
-  const ball = spinningBall.init({ display: globeDiv, center, altitude });
+  const ball = spinningBall.init({ display: globeDiv, position });
 
   const projection = geoSatellite()
     .translate([numPixelsX / 2, numPixelsY / 2])
@@ -98,9 +98,7 @@ export function main() {
     context.save();
     context.clearRect(0, 0, numPixelsX, numPixelsY);
 
-    let lon = cameraPos[0] * degrees;
-    let lat = cameraPos[1] * degrees;
-    let alt = cameraPos[2];
+    const [lon, lat, alt] = cameraPos;
     let snyderP = 1 + alt / ball.radius();
     let visibleYextent = 2 * alt * Math.tan(0.5 * fieldOfView / degrees);
     let scale = ball.radius() * numPixelsY / visibleYextent;

@@ -1,60 +1,48 @@
 import { initView } from "yawgl";
 import { initEllipsoid } from "./ellipsoid.js";
+import { checkCoords, getUnitConversion } from "./coords.js";
 
 export function setParams(params) {
   const { PI } = Math;
-  const degrees = 180.0 / PI;
 
   // TODO: Get user-supplied semiMinor & semiMajor axes?
   const ellipsoid = initEllipsoid();
 
   const {
     display,
-    units = "degrees",
-    center = [0.0, 0.0],
-    altitude = ellipsoid.meanRadius() * 4.0,
+    units: userUnits = "degrees",
+    position = [0.0, 0.0, ellipsoid.meanRadius * 4.0],
     minHeight = ellipsoid.meanRadius() * 0.00001,
     maxHeight = ellipsoid.meanRadius() * 8.0,
   } = params;
 
   if (!(display instanceof Element)) fail("missing display element");
 
-  if (!["degrees", "radians"].includes(units)) fail("invalid units");
-  const unitConversion = (units === "degrees")
-    ? (c) => ([c[0] / degrees, c[1] / degrees, c[2]])
-    : (c) => c;
+  if (!["degrees", "radians"].includes(userUnits)) fail("invalid units");
+  const units = getUnitConversion(userUnits);
 
-  // Center must be a valid coordinate in the given units
-  if (!checkCoords(center, 2)) fail("invalid center array");
-  const [cx, cy] = (units === "degrees")
-    ? center.slice(0, 2).map(c => c / degrees)
-    : center;
-  if (cx < -PI || cx > PI || cy < -PI / 2 || cy > PI / 2) {
-    fail("center coordinates out of range");
-  }
-
-  // Altitude, minHeight, maxHeight must be Numbers, positive and not too big
-  const heights = [altitude, minHeight, maxHeight];
+  // minHeight, maxHeight must be Numbers, positive and not too big
+  const heights = [minHeight, maxHeight];
   if (!heights.every(h => Number.isFinite(h) && h > 0)) {
-    fail("altitude, minHeight, maxHeight must be Numbers > 0");
+    fail("minHeight, maxHeight must be Numbers > 0");
   } else if (heights.some(h => h > ellipsoid.meanRadius() * 100000.0)) {
-    fail("altitude, minHeight, maxHeight must be somewhere below Jupiter");
+    fail("minHeight, maxHeight must be somewhere below Jupiter");
   }
+
+  // initialPosition must be a valid coordinate in the given units
+  if (!checkCoords(position, 3)) fail("invalid center array");
+  const initialPosition = units.convert(position);
+  const [lon, lat, alt] = initialPosition;
+  const outOfRange =
+    lon < -PI || lon > PI ||
+    lat < -PI / 2 || lat > PI / 2 ||
+    alt < minHeight || alt > maxHeight;
+  if (outOfRange) fail ("initial position out of range");
 
   return {
-    ellipsoid, display, units, unitConversion,
-    initialPosition: [cx, cy, altitude],
-    minHeight, maxHeight,
-    // view object computes ray parameters at points on the display
-    view: initView(display, 25.0),
+    ellipsoid, display, units, initialPosition, minHeight, maxHeight,
+    view: initView(display, 25.0), // Computes ray params at point on display
   };
-}
-
-function checkCoords(p, n) {
-  const isArray = Array.isArray(p) ||
-    (ArrayBuffer.isView(p) && !(p instanceof DataView));
-  return isArray && p.length >= n &&
-    p.slice(0, n).every(Number.isFinite);
 }
 
 function fail(message) {

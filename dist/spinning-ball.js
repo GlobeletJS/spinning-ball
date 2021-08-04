@@ -461,60 +461,70 @@ function initEllipsoid() {
   }
 }
 
+function checkCoords(p, n) {
+  const isArray = Array.isArray(p) ||
+    (ArrayBuffer.isView(p) && !(p instanceof DataView));
+  return isArray && p.length >= n &&
+    p.slice(0, n).every(Number.isFinite);
+}
+
+function getUnitConversion(units) {
+  // Internally, spinning-ball assumes geodetic coordinates in these units:
+  //   [longitude (radians), latitude (radians), altitude (kilometers)]
+  // Externally, the user may want longitude and latitude in degrees.
+  // Construct the functions that convert user inputs to internal coordinates,
+  // and invert internal coordinates to the user's units
+  const uPerRad = (units === "degrees")
+    ? 180.0 / Math.PI
+    : 1.0;
+
+  return {
+    convert: c => new Float64Array([c[0] / uPerRad, c[1] / uPerRad, c[2]]),
+    invert: c => new Float64Array([c[0] * uPerRad, c[1] * uPerRad, c[2]]),
+  };
+}
+
 function setParams(params) {
   const { PI } = Math;
-  const degrees = 180.0 / PI;
 
   // TODO: Get user-supplied semiMinor & semiMajor axes?
   const ellipsoid = initEllipsoid();
 
   const {
     display,
-    units = "degrees",
-    center = [0.0, 0.0],
-    altitude = ellipsoid.meanRadius() * 4.0,
+    units: userUnits = "degrees",
+    position = [0.0, 0.0, ellipsoid.meanRadius * 4.0],
     minHeight = ellipsoid.meanRadius() * 0.00001,
     maxHeight = ellipsoid.meanRadius() * 8.0,
   } = params;
 
   if (!(display instanceof Element)) fail("missing display element");
 
-  if (!["degrees", "radians"].includes(units)) fail("invalid units");
-  const unitConversion = (units === "degrees")
-    ? (c) => ([c[0] / degrees, c[1] / degrees, c[2]])
-    : (c) => c;
+  if (!["degrees", "radians"].includes(userUnits)) fail("invalid units");
+  const units = getUnitConversion(userUnits);
 
-  // Center must be a valid coordinate in the given units
-  if (!checkCoords(center, 2)) fail("invalid center array");
-  const [cx, cy] = (units === "degrees")
-    ? center.slice(0, 2).map(c => c / degrees)
-    : center;
-  if (cx < -PI || cx > PI || cy < -PI / 2 || cy > PI / 2) {
-    fail("center coordinates out of range");
-  }
-
-  // Altitude, minHeight, maxHeight must be Numbers, positive and not too big
-  const heights = [altitude, minHeight, maxHeight];
+  // minHeight, maxHeight must be Numbers, positive and not too big
+  const heights = [minHeight, maxHeight];
   if (!heights.every(h => Number.isFinite(h) && h > 0)) {
-    fail("altitude, minHeight, maxHeight must be Numbers > 0");
+    fail("minHeight, maxHeight must be Numbers > 0");
   } else if (heights.some(h => h > ellipsoid.meanRadius() * 100000.0)) {
-    fail("altitude, minHeight, maxHeight must be somewhere below Jupiter");
+    fail("minHeight, maxHeight must be somewhere below Jupiter");
   }
+
+  // initialPosition must be a valid coordinate in the given units
+  if (!checkCoords(position, 3)) fail("invalid center array");
+  const initialPosition = units.convert(position);
+  const [lon, lat, alt] = initialPosition;
+  const outOfRange =
+    lon < -PI || lon > PI ||
+    lat < -PI / 2 || lat > PI / 2 ||
+    alt < minHeight || alt > maxHeight;
+  if (outOfRange) fail ("initial position out of range");
 
   return {
-    ellipsoid, display, units, unitConversion,
-    initialPosition: [cx, cy, altitude],
-    minHeight, maxHeight,
-    // view object computes ray parameters at points on the display
-    view: initView(display, 25.0),
+    ellipsoid, display, units, initialPosition, minHeight, maxHeight,
+    view: initView(display, 25.0), // Computes ray params at point on display
   };
-}
-
-function checkCoords(p, n) {
-  const isArray = Array.isArray(p) ||
-    (ArrayBuffer.isView(p) && !(p instanceof DataView));
-  return isArray && p.length >= n &&
-    p.slice(0, n).every(Number.isFinite);
 }
 
 function fail(message) {
@@ -744,7 +754,7 @@ function initCamera(params) {
     ecefPos: ecef.position, // WARNING: exposed to changes from outside!
     rotation: ecef.rotation,
 
-    lonLatToScreenXY,
+    project,
     ecefToScreenRay,
     update,
   };
@@ -755,8 +765,8 @@ function initCamera(params) {
     ecef.update(position);
   }
 
-  function lonLatToScreenXY(xy, lonLat) {
-    ellipsoid.geodetic2ecef(ecefTmp, lonLat);
+  function project(xy, geodetic) {
+    ellipsoid.geodetic2ecef(ecefTmp, geodetic);
     const visible = ecefToScreenRay(rayVec, ecefTmp);
 
     xy[0] = view.width() * (1 + rayVec[0] / view.rightEdge()) / 2;
@@ -1078,15 +1088,21 @@ function initCursor2d(params, camera) {
 
   const screenRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
   const ecefRay = new Float64Array(4);
+  const cursorLonLat = new Float64Array(3);
 
   function project(cursorPosition) {
     view.getRayParams(screenRay, cursor2d.x(), cursor2d.y());
     transformMat4(ecefRay, screenRay, camera.rotation);
     // NOTE: cursorPosition will be overwritten!
-    return ellipsoid.shoot(cursorPosition, camera.ecefPos, ecefRay);
+    const onScene = ellipsoid.shoot(cursorPosition, camera.ecefPos, ecefRay);
+
+    // Convert to longitude/latitude/altitude
+    if (onScene) ellipsoid.ecef2geocentric(cursorLonLat, cursorPosition);
+
+    return onScene;
   }
 
-  return Object.assign(cursor2d, { project, screenRay });
+  return Object.assign(cursor2d, { project, screenRay, cursorLonLat });
 }
 
 function initCursor3d(params, camera) {
@@ -1111,6 +1127,7 @@ function initCursor3d(params, camera) {
 
   return {
     // POINTERs to local arrays. WARNING: local vals can be changed outside!
+    cursorLonLat: cursor2d.cursorLonLat,
     cursorPosition,
     clickPosition,
     zoomPosition,
@@ -1145,8 +1162,7 @@ function initCursor3d(params, camera) {
       clickPosition.set(cursorPosition);
       // Assuming this is a click or single touch, stop zooming
       stopZoom(position[2]);
-      // Also stop any coasting in the altitude direction
-      dynamics.stopZoom();
+      dynamics.stopZoom(); // Stops coasting in altitude direction
       // If this was actually a two-touch zoom, then cursor2d.zoomStarted()...
     }
 
@@ -1377,28 +1393,26 @@ function initCameraDynamics(ellipsoid, camera, cursor3d) {
 
 function init(userParams) {
   const params = setParams(userParams);
-  const { ellipsoid, view, unitConversion } = params;
+  const { ellipsoid, view, units } = params;
 
   const camera = initCamera(params);
   const cursor = initCursor3d(params, camera);
   const dynamics = initCameraDynamics(ellipsoid, camera, cursor);
 
-  const cursorTmp = new Float64Array(3);
-  const cursorPos = new Float64Array(3);
   let camMoving, cursorChanged;
 
   return {
     view,
     radius: ellipsoid.meanRadius,
-    lonLatToScreenXY: camera.lonLatToScreenXY,
+
+    project: (pt) => camera.project(units.convert(pt)),
+    cameraPos: () => units.invert(camera.position()),
+    cursorPos: () => units.invert(cursor.cursorLonLat),
 
     camMoving: () => camMoving,
-    cameraPos: camera.position,
-
-    cursorPos: () => cursorPos.slice(),
     isOnScene: cursor.isOnScene,
-    cursorChanged: () => cursorChanged,
     wasTapped: cursor.wasTapped,
+    cursorChanged: () => cursorChanged,
 
     update,
   };
@@ -1410,12 +1424,6 @@ function init(userParams) {
     camMoving = dynamics.update(time) || resized;
     cursorChanged = cursor.hasChanged() || camMoving;
     if (cursorChanged) cursor.update(camera.position(), dynamics);
-
-    if (cursor.isOnScene()) {
-      // Update cursor longitude/latitude/altitude
-      ellipsoid.ecef2geocentric(cursorTmp, cursor.cursorPosition);
-      cursorPos.set(unitConversion(cursorTmp));
-    }
 
     return camMoving;
   }

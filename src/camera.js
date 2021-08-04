@@ -16,7 +16,7 @@ export function initCamera(params) {
     ecefPos: ecef.position, // WARNING: exposed to changes from outside!
     rotation: ecef.rotation,
 
-    lonLatToScreenXY,
+    project,
     ecefToScreenRay,
     update,
   };
@@ -27,8 +27,8 @@ export function initCamera(params) {
     ecef.update(position);
   }
 
-  function lonLatToScreenXY(xy, lonLat) {
-    ellipsoid.geodetic2ecef(ecefTmp, lonLat);
+  function project(xy, geodetic) {
+    ellipsoid.geodetic2ecef(ecefTmp, geodetic);
     const visible = ecefToScreenRay(rayVec, ecefTmp);
 
     xy[0] = view.width() * (1 + rayVec[0] / view.rightEdge()) / 2;

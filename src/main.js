@@ -5,28 +5,26 @@ import { initCameraDynamics } from "./dynamics.js";
 
 export function init(userParams) {
   const params = setParams(userParams);
-  const { ellipsoid, view, unitConversion } = params;
+  const { ellipsoid, view, units } = params;
 
   const camera = initCamera(params);
   const cursor = initCursor3d(params, camera);
   const dynamics = initCameraDynamics(ellipsoid, camera, cursor);
 
-  const cursorTmp = new Float64Array(3);
-  const cursorPos = new Float64Array(3);
   let camMoving, cursorChanged;
 
   return {
     view,
     radius: ellipsoid.meanRadius,
-    lonLatToScreenXY: camera.lonLatToScreenXY,
+
+    project: (pt) => camera.project(units.convert(pt)),
+    cameraPos: () => units.invert(camera.position()),
+    cursorPos: () => units.invert(cursor.cursorLonLat),
 
     camMoving: () => camMoving,
-    cameraPos: camera.position,
-
-    cursorPos: () => cursorPos.slice(),
     isOnScene: cursor.isOnScene,
-    cursorChanged: () => cursorChanged,
     wasTapped: cursor.wasTapped,
+    cursorChanged: () => cursorChanged,
 
     update,
   };
@@ -38,12 +36,6 @@ export function init(userParams) {
     camMoving = dynamics.update(time) || resized;
     cursorChanged = cursor.hasChanged() || camMoving;
     if (cursorChanged) cursor.update(camera.position(), dynamics);
-
-    if (cursor.isOnScene()) {
-      // Update cursor longitude/latitude/altitude
-      ellipsoid.ecef2geocentric(cursorTmp, cursor.cursorPosition);
-      cursorPos.set(unitConversion(cursorTmp));
-    }
 
     return camMoving;
   }
