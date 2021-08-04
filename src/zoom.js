@@ -1,121 +1,45 @@
-import * as vec3 from "gl-matrix/vec3";
-import { updateOscillator } from "./oscillator.js";
+import { oscillatorChange } from "./oscillator.js";
+import { getCamPos, limitRotation } from "./dragonfly.js";
 
-const { abs, sqrt, asin, atan2, cos, min, max, PI } = Math;
-
-export function initZoom(ellipsoid) {
+export function initZoom(ellipsoid, cursor3d) {
   // Update camera altitude based on target set by mouse wheel events
   //  or two-finger pinch movements
+  const { zoomTarget, zoomPosition, zoomRay, stopZoom } = cursor3d;
+
   const w0 = 14.14; // Natural frequency of oscillator
   const minVelocity = 0.001;
-  const maxRotation = 0.15;
+  const minEnergy = 0.5 * minVelocity ** 2; // ASSUME mass == 1
 
-  // NOTE: everything below ASSUMES mass = 1
-  const minEnergy = 0.5 * minVelocity * minVelocity;
-  let extension, kineticE, potentialE;
-  const dPos = new Float64Array(3);
-
-  return function(position, velocity, cursor3d, deltaTime, track) {
-    // Input cursor3d is a pointer to an object
-    // Inputs position, velocity are pointers to 3-element arrays
-    // Input deltaTime is a primitive floating point value
-
-    let targetHeight = cursor3d.zoomTarget();
-
-    // Save old altitude
-    const oldAltitude = position[2];
-
-    dPos[2] = position[2] - targetHeight;
-    updateOscillator(position, velocity, dPos, w0, deltaTime, 2, 2);
-
-    let limited;
-    if (track) {
-      // Adjust rotation to keep zoom location fixed on screen
-      dPos.set(position);
-      dragonflyStalk(dPos, cursor3d.zoomRay, cursor3d.zoomPosition, ellipsoid);
-      // Restrict size of rotation in one time step
-      vec3.subtract(dPos, dPos, position);
-      limited = limitRotation(dPos, maxRotation);
-      vec3.add(position, position, dPos);
-    }
+  return function(position, velocity, dt) {
+    const stretch = position[2] - zoomTarget();
+    const [dz, dVz] = oscillatorChange(stretch, velocity[2], dt, w0);
+    velocity[2] += dVz;
 
     // Scale rotational velocity by the ratio of the height change
-    const heightScale = position[2] / oldAltitude;
+    const heightScale = 1.0 + dz / position[2];
     velocity[0] *= heightScale;
     velocity[1] *= heightScale;
 
-    if (cursor3d.isClicked() || limited) return;
-
-    // Stop if we are already near steady state
-    kineticE = 0.5 * velocity[2] ** 2;
-    extension = position[2] - targetHeight;
-    potentialE = 0.5 * (w0 * extension) ** 2;
-    if (kineticE + potentialE < minEnergy * targetHeight) {
-      targetHeight = position[2];
-      velocity[2] = 0.0;
-      cursor3d.stopZoom();
+    const dPos = new Float64Array([0.0, 0.0, dz]);
+    const centerDist = position[2] + dz + ellipsoid.meanRadius();
+    const newRotation = (cursor3d.zoomFixed())
+      ? getCamPos(centerDist, zoomPosition, zoomRay, ellipsoid)
+      : null;
+    if (newRotation) {
+      dPos[0] = newRotation[0] - position[0];
+      dPos[1] = newRotation[1] - position[1];
     }
-    return;
+    const limited = limitRotation(dPos);
+
+    const rotating = cursor3d.isClicked() || limited;
+    const energy = 0.5 * velocity[2] ** 2 + // Kinetic
+      0.5 * (w0 * (stretch + dz)) ** 2;     // Potential
+    // Stop if we are already near steady state
+    if (!rotating && energy < minEnergy * zoomTarget()) {
+      velocity[2] = 0.0;
+      stopZoom();
+    }
+
+    return dPos;
   };
-}
-
-function limitRotation(dPos, maxRotation) {
-  // Input dPos is a pointer to a 2-element array containing lon, lat changes
-  // maxRotation is a primitive floating point value
-
-  // Check for longitude value crossing antimeridian
-  if (dPos[0] >  PI) dPos[0] -= 2.0 * PI;
-  if (dPos[0] < -PI) dPos[0] += 2.0 * PI;
-
-  if (abs(dPos[0]) > maxRotation) {
-    const tmp = min(max(-maxRotation, dPos[0]), maxRotation) / dPos[0];
-    dPos[0] *= tmp;
-    dPos[1] *= tmp;
-    return true;
-  }
-  return false;
-}
-
-// Given a 3D scene coordinate over which a zoom action was initiated,
-// and a distance between the screen and the center of the 3D scene,
-// compute the rotations required to align the 3D coordinate along
-// the original screen ray.  See
-// https://en.wikipedia.org/wiki/Dragonfly#Motion_camouflage
-// TODO: Clean this up. Just use difference of lat/lon under ray?
-function dragonflyStalk(outRotation, ray, scenePos, ellipsoid) {
-  // Output outRotation is a pointer to a vec3
-  // Input ray is a pointer to a vec3
-  // Input scenePos is a pointer to a 3D cursor object
-
-  // Find the ray-sphere intersection in unrotated model space coordinates
-  const target = new Float64Array(3);
-  const unrotatedCamPos = [0.0, 0.0, outRotation[2] + vec3.length(scenePos)];
-  const onEllipse = ellipsoid.shoot(target, unrotatedCamPos, ray);
-  if (!onEllipse) return; // No intersection!
-
-  // Find the rotation about the y-axis required to bring scene point into
-  // the  x = target[0]  plane
-  // First find distance of scene point from scene y-axis
-  const sceneR = sqrt(scenePos[0] ** 2 + scenePos[2] ** 2);
-  // If too short, exit rather than tipping poles out of y-z plane
-  if (sceneR < abs(target[0])) return;
-  const targetRotY = asin( target[0] / sceneR );
-  outRotation[0] =
-    atan2( scenePos[0], scenePos[2] ) - // Y-angle of scene vector
-    // asin( target[0] / sceneR );       // Y-angle of target point
-    targetRotY;
-
-  // We now know the x and y coordinates of the scene vector after rotation
-  // around the y-axis: (x = target[0], y = scenePos[1])
-  // Find the z-coordinate so we can compute the remaining required rotation
-  const zRotated = sceneR * cos(targetRotY);
-
-  // Find the rotation about the screen x-axis required to bring the scene
-  // point into the target y = target[1] plane
-  // Assumes 0 angle is aligned along Z, and angle > 0 is rotation toward -y !
-  outRotation[1] =
-    atan2( -1 * target[1], target[2] ) -  // X-angle of target point
-    atan2( -1 * scenePos[1], zRotated );  // X-angle of scene vector
-
-  return;
 }

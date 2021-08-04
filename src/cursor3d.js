@@ -1,48 +1,35 @@
-import * as vec4 from "gl-matrix/vec4";
+import { initCursor2d } from "./cursor2d.js";
 
-export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
-  // Input getRayParams is a method from yawgl.initView, converting screen X/Y
-  //  to a ray shooting into 3D space
-  // Input initialPosition is a geodetic lon/lat/alt vector
+export function initCursor3d(params, camera) {
+  const { initialPosition, minHeight, maxHeight } = params;
+
+  const cursor2d = initCursor2d(params, camera);
 
   // Cursor positions are computed & stored in ECEF coordinates (x,y,z)
   const cursorPosition = new Float64Array(3);
   const clickPosition = new Float64Array(3);
   const zoomPosition = new Float64Array(3);
-  // Derived geocentric longitude, latitude, altitude
-  const cursorLonLat = new Float64Array(3);
-  // Screen ray for the 2D cursor position
-  const cursorRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
+  // Track target screen ray and altitude for zooming
+  const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
+  let targetHeight = initialPosition[2];
 
   // Flags about the cursor state
   let onScene = false;
   let clicked = false;
   let zooming = false;
   let wasTapped = false;
-  // Whether to fix the screen position of the zoom
-  let zoomFix = false;
+  let zoomFix = false; // Whether to fix the screen position of the zoom
 
-  // Track target altitude for zooming
-  let targetHeight = initialPosition[2];
-  const minHeight = ellipsoid.meanRadius() * 0.00001;
-  const maxHeight = ellipsoid.meanRadius() * 8.0;
-  // Target screen ray for zooming
-  const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
-
-  // Local working vector
-  const ecefRay = new Float64Array(4);
-
-  // Return methods to read/update cursorPosition
   return {
     // POINTERs to local arrays. WARNING: local vals can be changed outside!
-    position: cursorPosition, // TODO: why make the name more ambiguous?
-    cursorLonLat,
+    cursorLonLat: cursor2d.cursorLonLat,
+    cursorPosition,
     clickPosition,
     zoomPosition,
     zoomRay,
 
-    // Methods to report local state.
-    // These protect the local value, since primitives are passed by value
+    // Methods to report local state
+    hasChanged: () => cursor2d.hasChanged() || wasTapped,
     isOnScene: () => onScene,
     isClicked: () => clicked,
     wasTapped: () => wasTapped,
@@ -55,61 +42,43 @@ export function initCursor3d(getRayParams, ellipsoid, initialPosition) {
     stopZoom,
   };
 
-  function update(cursor2d, camera) {
-    // Get screen ray in model coordinates (ECEF)
-    getRayParams(cursorRay, cursor2d.x(), cursor2d.y());
-    vec4.transformMat4(ecefRay, cursorRay, camera.rotation);
-
-    // Find intersection of ray with ellipsoid
-    onScene = ellipsoid.shoot(cursorPosition, camera.ecefPos, ecefRay);
+  function update(position, dynamics) {
+    onScene = cursor2d.project(cursorPosition);
     if (!onScene) {
-      clicked = false;
-      stopZoom(camera.position[2]);
-      cursor2d.reset();
-      return;
+      clicked = zoomFix = false;
+      return cursor2d.reset();
     }
 
-    // Update cursor longitude/latitude
-    ellipsoid.ecef2geocentric(cursorLonLat, cursorPosition);
-
-    if ( cursor2d.touchEnded() ) {
-      clicked = false;
-      zoomFix = false;
-    }
+    if (cursor2d.touchEnded()) clicked = zoomFix = false;
     wasTapped = cursor2d.tapped();
 
-    if ( cursor2d.touchStarted() ) {
-      // Set click position
+    if (cursor2d.touchStarted()) {
       clicked = true;
       clickPosition.set(cursorPosition);
       // Assuming this is a click or single touch, stop zooming
-      stopZoom(camera.position[2]);
-      // Also stop any coasting in the altitude direction
-      camera.stopZoom();
+      stopZoom(position[2]);
+      dynamics.stopZoom(); // Stops coasting in altitude direction
       // If this was actually a two-touch zoom, then cursor2d.zoomStarted()...
     }
 
-    if ( cursor2d.zoomStarted() ) {
-      zooming = true;
-      zoomFix = true;
+    if (cursor2d.zoomStarted()) {
+      zooming = zoomFix = true;
       zoomPosition.set(cursorPosition);
-      zoomRay.set(cursorRay);
-      if (!clicked) camera.stopCoast();
+      zoomRay.set(cursor2d.screenRay);
+      if (!clicked) dynamics.stopCoast();
     }
 
-    if ( cursor2d.zoomed() ) {
+    if (cursor2d.zoomed()) {
       zooming = true;
       targetHeight *= cursor2d.zscale();
       targetHeight = Math.min(Math.max(minHeight, targetHeight), maxHeight);
     }
 
     cursor2d.reset();
-    return;
   }
 
   function stopZoom(height) {
-    zooming = false;
-    zoomFix = false;
+    zooming = zoomFix = false;
     if (height !== undefined) targetHeight = height;
   }
 }
