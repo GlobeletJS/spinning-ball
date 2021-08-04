@@ -17,7 +17,7 @@ export function init(userParams) {
     view,
     radius: ellipsoid.meanRadius,
 
-    project: (pt) => camera.project(units.convert(pt)),
+    project: (xy, geodetic) => camera.project(xy, units.convert(geodetic)),
     cameraPos: () => units.invert(camera.position()),
     cursorPos: () => units.invert(cursor.cursorLonLat),
 

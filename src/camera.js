@@ -28,6 +28,8 @@ export function initCamera(params) {
   }
 
   function project(xy, geodetic) {
+    // Project a geodetic position on the ellipsoid (lon, lat, alt)
+    //  to a position on the display (x, y in pixels)
     ellipsoid.geodetic2ecef(ecefTmp, geodetic);
     const visible = ecefToScreenRay(rayVec, ecefTmp);
 

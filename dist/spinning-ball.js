@@ -766,6 +766,8 @@ function initCamera(params) {
   }
 
   function project(xy, geodetic) {
+    // Project a geodetic position on the ellipsoid (lon, lat, alt)
+    //  to a position on the display (x, y in pixels)
     ellipsoid.geodetic2ecef(ecefTmp, geodetic);
     const visible = ecefToScreenRay(rayVec, ecefTmp);
 
@@ -1091,6 +1093,9 @@ function initCursor2d(params, camera) {
   const cursorLonLat = new Float64Array(3);
 
   function project(cursorPosition) {
+    // Project a cursor position on the display (x, y in pixels)
+    //  to an ECEF coordinate on the ellipsoid
+
     view.getRayParams(screenRay, cursor2d.x(), cursor2d.y());
     transformMat4(ecefRay, screenRay, camera.rotation);
     // NOTE: cursorPosition will be overwritten!
@@ -1405,7 +1410,7 @@ function init(userParams) {
     view,
     radius: ellipsoid.meanRadius,
 
-    project: (pt) => camera.project(units.convert(pt)),
+    project: (xy, geodetic) => camera.project(xy, units.convert(geodetic)),
     cameraPos: () => units.invert(camera.position()),
     cursorPos: () => units.invert(cursor.cursorLonLat),
 

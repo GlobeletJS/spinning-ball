@@ -11,6 +11,9 @@ export function initCursor2d(params, camera) {
   const cursorLonLat = new Float64Array(3);
 
   function project(cursorPosition) {
+    // Project a cursor position on the display (x, y in pixels)
+    //  to an ECEF coordinate on the ellipsoid
+
     view.getRayParams(screenRay, cursor2d.x(), cursor2d.y());
     vec4.transformMat4(ecefRay, screenRay, camera.rotation);
     // NOTE: cursorPosition will be overwritten!
