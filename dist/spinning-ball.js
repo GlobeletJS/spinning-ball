@@ -484,6 +484,12 @@ function getUnitConversion(units) {
   };
 }
 
+function wrapLongitude(lon) {
+  const { floor, PI } = Math;
+  const period = floor((lon + PI) / (2 * PI));
+  return lon - period * 2 * PI;
+}
+
 function setParams(params) {
   const { PI } = Math;
 
@@ -716,11 +722,9 @@ function initECEF(ellipsoid, initialPos) {
   };
 
   function update(geodetic) {
-    // Limit rotation around screen x-axis to keep global North pointing up
+    // Wrap longitude, clip latitude
+    geodetic[0] = wrapLongitude(geodetic[0]);
     geodetic[1] = min(max(-PI / 2.0, geodetic[1]), PI / 2.0);
-    // Avoid accumulation of large values in longitude
-    if (geodetic[0] >  PI) geodetic[0] -= 2.0 * PI;
-    if (geodetic[0] < -PI) geodetic[0] += 2.0 * PI;
 
     // Compute ECEF coordinates. NOTE WebGL coordinate convention:
     // +x to right, +y to top of screen, and +z into the screen
@@ -867,7 +871,7 @@ function initCursor() {
     cursorX = evnt.clientX;
     cursorY = evnt.clientY;
     moved = true;
-    const dist = Math.abs(cursorX - startX) + Math.abs(cursorY - startY);
+    const dist = Math.hypot(cursorX - startX, cursorY - startY);
     if (dist > threshold) tapping = false;
   }
 
@@ -901,10 +905,48 @@ function initCursor() {
   }
 }
 
-function initTouch(div) {
+function getMidPoint(p0, p1) {
+  // Convert a two-touch event to a single event at the midpoint
+  const dx = p1.clientX - p0.clientX;
+  const dy = p1.clientY - p0.clientY;
+  return {
+    clientX: p0.clientX + dx / 2,
+    clientY: p0.clientY + dy / 2,
+    distance: Math.hypot(dx, dy),
+  };
+}
+
+function initWheelScale(wheelDelta) {
+  return (wheelDelta === "constant") ? wheelScale_const : wheelScale;
+}
+
+function wheelScale(turn) {
+  const { deltaY, deltaMode } = turn;
+  if (!deltaY) return 1.0; // Could be a deltaX or deltaZ event
+
+  switch (deltaMode) {
+    case 0:
+      // Chrome on Windows 10 Surface Book 2: deltaY = -100 * devicePixelRatio
+      return 1.0 + deltaY * 0.002 / window.devicePixelRatio;
+    case 1:
+      // Firefox on Windows 10 Surface Book 2: deltaY = -3
+      return 1.0 + deltaY * 0.067;
+    case 2:
+      // Untested. Ratio vs. case 0 is from d3-zoom
+      return 1.0 + deltaY;
+  }
+}
+
+function wheelScale_const(turn) {
+  // Ignore dY from the browser - may be arbitrarily scaled. Keep only the sign
+  return 1.0 + 0.2 * Math.sign(turn.deltaY);
+}
+
+function initTouch(div, { wheelDelta = "default" } = {}) {
   // Add event listeners to update the state of a cursor object
   // Input div is an HTML element on which events will be registered
   const cursor = initCursor();
+  const getWheelScale = initWheelScale(wheelDelta);
 
   // Remember the distance between two pointers
   let lastDistance = 1.0;
@@ -970,25 +1012,10 @@ function initTouch(div) {
     }
   }
 
-  // Convert a two-touch event to a single event at the midpoint
-  function getMidPoint(p0, p1) {
-    const dx = p1.clientX - p0.clientX;
-    const dy = p1.clientY - p0.clientY;
-    return {
-      clientX: p0.clientX + dx / 2,
-      clientY: p0.clientY + dy / 2,
-      distance: Math.hypot(dx, dy),
-    };
-  }
-
   function wheelZoom(turn) {
     turn.preventDefault();
     cursor.startZoom(turn);
-    // We ignore the dY from the browser, since it may be arbitrarily scaled
-    // based on screen resolution or other factors. We keep only the sign.
-    // See https://github.com/Leaflet/Leaflet/issues/4538
-    const zoomScale = 1.0 + 0.2 * Math.sign(turn.deltaY);
-    cursor.zoom(zoomScale);
+    cursor.zoom(getWheelScale(turn));
   }
 }
 
@@ -1235,12 +1262,10 @@ function getCamPos(centerDist, zoomPos, zoomRay, ellipsoid) {
 }
 
 function limitRotation(dPos) {
-  const { abs, min, max, PI } = Math;
+  const { abs, min, max } = Math;
   const maxRotation = 0.15;
 
-  // Check for longitude value crossing antimeridian
-  if (dPos[0] >  PI) dPos[0] -= 2.0 * PI;
-  if (dPos[0] < -PI) dPos[0] += 2.0 * PI;
+  dPos[0] = wrapLongitude(dPos[0]);
 
   if (abs(dPos[0]) < maxRotation) return false;
 

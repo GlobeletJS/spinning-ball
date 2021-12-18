@@ -20,3 +20,9 @@ export function getUnitConversion(units) {
     invert: c => new Float64Array([c[0] * uPerRad, c[1] * uPerRad, c[2]]),
   };
 }
+
+export function wrapLongitude(lon) {
+  const { floor, PI } = Math;
+  const period = floor((lon + PI) / (2 * PI));
+  return lon - period * 2 * PI;
+}

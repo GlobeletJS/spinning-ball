@@ -1,3 +1,5 @@
+import { wrapLongitude } from "./coords.js";
+
 export function getCamPos(centerDist, zoomPos, zoomRay, ellipsoid) {
   // See https://en.wikipedia.org/wiki/Dragonfly#Motion_camouflage
   // Returns the [lon, lat] where a camera at centerDist km from the
@@ -29,12 +31,10 @@ export function getCamPos(centerDist, zoomPos, zoomRay, ellipsoid) {
 }
 
 export function limitRotation(dPos) {
-  const { abs, min, max, PI } = Math;
+  const { abs, min, max } = Math;
   const maxRotation = 0.15;
 
-  // Check for longitude value crossing antimeridian
-  if (dPos[0] >  PI) dPos[0] -= 2.0 * PI;
-  if (dPos[0] < -PI) dPos[0] += 2.0 * PI;
+  dPos[0] = wrapLongitude(dPos[0]);
 
   if (abs(dPos[0]) < maxRotation) return false;
 

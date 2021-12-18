@@ -25,14 +25,15 @@ simple D3 renderer.
 
 [d3-world-atlas example]: https://globeletjs.github.io/spinning-ball/examples/d3-world-atlas/index.html
 
-## Installation
-spinning-ball is provided as an ESM import:
+## Initialization
+A spinning-ball instance can be initialized as follows:
 ```javascript
 import * as spinningBall from 'spinning-ball';
+
+const ball = spinningBall.init(parameters);
 ```
 
-## Initialization
-spinningBall.init takes a parameters object with the following properties:
+The supplied parameters object has the following properties:
 - `display` (REQUIRED): An HTML element where the globe will be represented,
   and where the user's client will generate interaction events
 - `units`: Specify "degrees" or "radians" as the units of any supplied or
