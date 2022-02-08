@@ -1,4 +1,4 @@
-import { wrapLongitude } from "./coords.js";
+import { wrapLongitude } from "./bounds.js";
 
 export function getCamPos(centerDist, zoomPos, zoomRay, ellipsoid) {
   // See https://en.wikipedia.org/wiki/Dragonfly#Motion_camouflage

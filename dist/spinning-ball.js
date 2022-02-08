@@ -461,27 +461,28 @@ function initEllipsoid() {
   }
 }
 
-function checkCoords(p, n) {
-  const isArray = Array.isArray(p) ||
-    (ArrayBuffer.isView(p) && !(p instanceof DataView));
-  return isArray && p.length >= n &&
-    p.slice(0, n).every(Number.isFinite);
-}
-
 function getUnitConversion(units) {
   // Internally, spinning-ball assumes geodetic coordinates in these units:
   //   [longitude (radians), latitude (radians), altitude (kilometers)]
   // Externally, the user may want longitude and latitude in degrees.
   // Construct the functions that convert user inputs to internal coordinates,
   // and invert internal coordinates to the user's units
-  const uPerRad = (units === "degrees")
-    ? 180.0 / Math.PI
-    : 1.0;
+  const maxLon = (units === "degrees") ? 180.0 : Math.PI;
+  const maxLat = maxLon / 2;
+  const uPerRad = maxLon / Math.PI;
 
   return {
-    convert: c => new Float64Array([c[0] / uPerRad, c[1] / uPerRad, c[2]]),
-    invert: c => new Float64Array([c[0] * uPerRad, c[1] * uPerRad, c[2]]),
+    maxLon, maxLat,
+    convert: (c) => new Float64Array([c[0] / uPerRad, c[1] / uPerRad, c[2]]),
+    invert: (c) => new Float64Array([c[0] * uPerRad, c[1] * uPerRad, c[2]]),
   };
+}
+
+function checkCoords(p, n) {
+  const isArray = Array.isArray(p) ||
+    (ArrayBuffer.isView(p) && !(p instanceof DataView));
+  return isArray && p.length >= n &&
+    p.slice(0, n).every(Number.isFinite);
 }
 
 function wrapLongitude(lon) {
@@ -490,52 +491,92 @@ function wrapLongitude(lon) {
   return lon - period * 2 * PI;
 }
 
-function setParams(params) {
-  const { PI } = Math;
+function initBounds([minLon, minLat, minAlt], [maxLon, maxLat, maxAlt]) {
+  const { min, max, PI } = Math;
 
+  const hWidth = (minLon < maxLon)
+    ? (maxLon - minLon) / 2
+    : (maxLon - minLon) / 2 + PI;
+
+  const centerLon = minLon + hWidth;
+
+  return { check, apply };
+
+  function check([lon, lat, alt]) {
+    const dLon = wrapLongitude(lon - centerLon);
+    if (dLon < -hWidth || hWidth < dLon) return false;
+    if (lat < minLat || maxLat < lat) return false;
+    if (alt < minAlt || maxAlt < alt) return false;
+    return true;
+  }
+
+  function apply([lon, lat, alt]) {
+    const dLon = wrapLongitude(lon - centerLon);
+    const limdlon = min(max(-hWidth, dLon), hWidth);
+    const clipLon = wrapLongitude(centerLon + limdlon);
+
+    const clipLat = min(max(minLat, lat), maxLat);
+    const clipAlt = min(max(minAlt, alt), maxAlt);
+
+    return [clipLon, clipLat, clipAlt];
+  }
+}
+
+function setParams(params) {
   // TODO: Get user-supplied semiMinor & semiMajor axes?
   const ellipsoid = initEllipsoid();
 
+  const { units: userUnits = "degrees" } = params;
+  if (!["degrees", "radians"].includes(userUnits)) {
+    fail("units must be either degrees or radians");
+  }
+  const units = getUnitConversion(userUnits);
+
   const {
     display,
-    units: userUnits = "degrees",
     position = [0.0, 0.0, ellipsoid.meanRadius * 4.0],
-    minHeight = ellipsoid.meanRadius() * 0.00001,
-    maxHeight = ellipsoid.meanRadius() * 8.0,
+    minAltitude: minAlt = ellipsoid.meanRadius() * 0.00001,
+    maxAltitude: maxAlt = ellipsoid.meanRadius() * 8.0,
+    minLongitude: minLon = -units.maxLon,
+    maxLongitude: maxLon = units.maxLon,
+    minLatitude: minLat = -units.maxLat,
+    maxLatitude: maxLat = units.maxLat,
   } = params;
 
   if (!(display instanceof Element)) fail("missing display element");
 
-  if (!["degrees", "radians"].includes(userUnits)) fail("invalid units");
-  const units = getUnitConversion(userUnits);
+  check(minAlt, 0, ellipsoid.meanRadius() * 100000.0, "minAltitude");
+  check(maxAlt, 0, ellipsoid.meanRadius() * 100000.0, "maxAltitude");
+  if (minAlt > maxAlt) fail("minAltitude must be <= maxAltitude");
 
-  // minHeight, maxHeight must be Numbers, positive and not too big
-  const heights = [minHeight, maxHeight];
-  if (!heights.every(h => Number.isFinite(h) && h > 0)) {
-    fail("minHeight, maxHeight must be Numbers > 0");
-  } else if (heights.some(h => h > ellipsoid.meanRadius() * 100000.0)) {
-    fail("minHeight, maxHeight must be somewhere below Jupiter");
-  }
+  check(minLon, -units.maxLon, units.maxLon, "minLongitude");
+  check(maxLon, -units.maxLon, units.maxLon, "maxLongitude");
+  check(minLat, -units.maxLat, units.maxLat, "minLatitude");
+  check(maxLat, -units.maxLat, units.maxLat, "maxLatitude");
+  if (minLat > maxLat) fail("minLatitude must be <= maxLatitude");
 
-  // initialPosition must be a valid coordinate in the given units
-  if (!checkCoords(position, 3)) fail("invalid center array");
+  const b1 = units.convert([minLon, minLat, minAlt]);
+  const b2 = units.convert([maxLon, maxLat, maxAlt]);
+  const bounds = initBounds(b1, b2);
+
+  if (!checkCoords(position, 3)) fail("position must be an Array of 3 numbers");
   const initialPosition = units.convert(position);
-  const [lon, lat, alt] = initialPosition;
-  const outOfRange =
-    lon < -PI || lon > PI ||
-    lat < -PI / 2 || lat > PI / 2 ||
-    alt < minHeight || alt > maxHeight;
-  if (outOfRange) fail ("initial position out of range");
+  if (!bounds.check(initialPosition)) fail ("initial position out of range");
 
   return {
-    ellipsoid, display, units, initialPosition, minHeight, maxHeight,
+    ellipsoid, display, units, initialPosition, bounds, minAlt, maxAlt,
     view: initView(display, 25.0), // Computes ray params at point on display
   };
 }
 
+function check(c, lb, ub, name) {
+  if (Number.isFinite(c) && (lb <= c) && (c <= ub)) return true;
+  fail(name + " must be a Number between " + lb + " and " + ub);
+}
+
 function fail(message) {
   // TODO: Should some errors be RangeErrors or TypeErrors instead?
-  throw Error("spinning-ball: " + message);
+  throw Error("spinning-ball parameters check: " + message);
 }
 
 /**
@@ -703,11 +744,6 @@ function fromYRotation(out, rad) {
 }
 
 function initECEF(ellipsoid, initialPos) {
-  // From the geodetic position, we derive Earth-Centered Earth-Fixed (ECEF)
-  // coordinates and a rotation matrix
-  // These are suitable for rendering Relative To Eye (RTE), as described in
-  // P Cozzi, 3D Engine Design for Virtual Globes, www.virtualglobebook.com
-  const { min, max, PI } = Math;
   const position = new Float64Array([0.0, 0.0, 0.0, 1.0]);
   const rotation = create$1();  // Note: single precision!! (Float32Array)
   const inverse  = create$1();
@@ -722,10 +758,6 @@ function initECEF(ellipsoid, initialPos) {
   };
 
   function update(geodetic) {
-    // Wrap longitude, clip latitude
-    geodetic[0] = wrapLongitude(geodetic[0]);
-    geodetic[1] = min(max(-PI / 2.0, geodetic[1]), PI / 2.0);
-
     // Compute ECEF coordinates. NOTE WebGL coordinate convention:
     // +x to right, +y to top of screen, and +z into the screen
     ellipsoid.geodetic2ecef(position, geodetic);
@@ -744,7 +776,7 @@ function initECEF(ellipsoid, initialPos) {
 }
 
 function initCamera(params) {
-  const { view, ellipsoid, initialPosition } = params;
+  const { view, ellipsoid, bounds, initialPosition } = params;
   const rayVec = new Float64Array(3);
   const ecefTmp = new Float64Array(3);
 
@@ -765,7 +797,8 @@ function initCamera(params) {
 
   function update(dPos) {
     if (dPos.every(c => c == 0.0)) return;
-    position.set(position.map((c, i) => c + dPos[i]));
+    const newPos = position.map((c, i) => c + dPos[i]);
+    position.set(bounds.apply(newPos));
     ecef.update(position);
   }
 
@@ -1138,7 +1171,7 @@ function initCursor2d(params, camera) {
 }
 
 function initCursor3d(params, camera) {
-  const { initialPosition, minHeight, maxHeight } = params;
+  const { initialPosition, minAlt, maxAlt } = params;
 
   const cursor2d = initCursor2d(params, camera);
 
@@ -1148,7 +1181,7 @@ function initCursor3d(params, camera) {
   const zoomPosition = new Float64Array(3);
   // Track target screen ray and altitude for zooming
   const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
-  let targetHeight = initialPosition[2];
+  let targetAlt = initialPosition[2];
 
   // Flags about the cursor state
   let onScene = false;
@@ -1172,7 +1205,7 @@ function initCursor3d(params, camera) {
     wasTapped: () => wasTapped,
     isZooming: () => zooming,
     zoomFixed: () => zoomFix,
-    zoomTarget: () => targetHeight,
+    zoomTarget: () => targetAlt,
 
     // Functions to update local state
     update,
@@ -1207,16 +1240,16 @@ function initCursor3d(params, camera) {
 
     if (cursor2d.zoomed()) {
       zooming = true;
-      targetHeight *= cursor2d.zscale();
-      targetHeight = Math.min(Math.max(minHeight, targetHeight), maxHeight);
+      targetAlt *= cursor2d.zscale();
+      targetAlt = Math.min(Math.max(minAlt, targetAlt), maxAlt);
     }
 
     cursor2d.reset();
   }
 
-  function stopZoom(height) {
+  function stopZoom(alt) {
     zooming = zoomFix = false;
-    if (height !== undefined) targetHeight = height;
+    if (alt !== undefined) targetAlt = alt;
   }
 }
 
@@ -1289,10 +1322,10 @@ function initZoom(ellipsoid, cursor3d) {
     const [dz, dVz] = oscillatorChange(stretch, velocity[2], dt, w0);
     velocity[2] += dVz;
 
-    // Scale rotational velocity by the ratio of the height change
-    const heightScale = 1.0 + dz / position[2];
-    velocity[0] *= heightScale;
-    velocity[1] *= heightScale;
+    // Scale rotational velocity by the ratio of the altitude change
+    const altScale = 1.0 + dz / position[2];
+    velocity[0] *= altScale;
+    velocity[1] *= altScale;
 
     const dPos = new Float64Array([0.0, 0.0, dz]);
     const centerDist = position[2] + dz + ellipsoid.meanRadius();

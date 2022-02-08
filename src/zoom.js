@@ -15,10 +15,10 @@ export function initZoom(ellipsoid, cursor3d) {
     const [dz, dVz] = oscillatorChange(stretch, velocity[2], dt, w0);
     velocity[2] += dVz;
 
-    // Scale rotational velocity by the ratio of the height change
-    const heightScale = 1.0 + dz / position[2];
-    velocity[0] *= heightScale;
-    velocity[1] *= heightScale;
+    // Scale rotational velocity by the ratio of the altitude change
+    const altScale = 1.0 + dz / position[2];
+    velocity[0] *= altScale;
+    velocity[1] *= altScale;
 
     const dPos = new Float64Array([0.0, 0.0, dz]);
     const centerDist = position[2] + dz + ellipsoid.meanRadius();

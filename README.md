@@ -40,12 +40,22 @@ The supplied parameters object has the following properties:
   returned longitude and latitude coordinates. Default: "degrees"
 - `position`: The initial [position][] of the camera. Longitude and latitude
   must be in the specified units. Altitude must be in kilometers, and between
-  minHeight and maxHeight.
+  minAltitude and maxAltitude.
   Default: `[0.0, 0.0, 4 * earthRadius]` where `earthRadius == 6371.0`
-- `minHeight`: The minimum height of the camera, in kilometers.
+- `minAltitude`: The minimum altitude of the camera, in kilometers.
   Default: `0.0001 * earthRadius`
-- `maxHeight`: The maximum height of the camera, in kilometers.
+- `maxAltitude`: The maximum altitude of the camera, in kilometers.
   Default: `8.0 * earthRadius`
+- `minLongitude`: The minimum longitude of the camera, in the specified units.
+  Default: -180 degrees (or -PI radians)
+- `maxLongitude`: The maximum longitude of the camera, in the specified units.
+  Default: +180 degrees (or +PI radians).
+  Note: if both `minLongitude` and `maxLongitude` are set to their defaults,
+  the globe can be spun freely (it will not stop at the antimeridian)
+- `minLatitude`: The minimum latitude of the camera, in the specified units.
+  Default: -90 degrees (or -PI / 2 radians)
+- `maxLatitude`: The maximum latitude of the camera, in the specified units.
+  Default: +90 degrees (or +PI / 2 radians)
 
 ## API
 Initialization returns an object with the following properties and methods:

@@ -2,7 +2,7 @@ import { initECEF } from "./ecef.js";
 import * as vec3 from "gl-matrix/vec3";
 
 export function initCamera(params) {
-  const { view, ellipsoid, initialPosition } = params;
+  const { view, ellipsoid, bounds, initialPosition } = params;
   const rayVec = new Float64Array(3);
   const ecefTmp = new Float64Array(3);
 
@@ -23,7 +23,8 @@ export function initCamera(params) {
 
   function update(dPos) {
     if (dPos.every(c => c == 0.0)) return;
-    position.set(position.map((c, i) => c + dPos[i]));
+    const newPos = position.map((c, i) => c + dPos[i]);
+    position.set(bounds.apply(newPos));
     ecef.update(position);
   }
 

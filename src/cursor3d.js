@@ -1,7 +1,7 @@
 import { initCursor2d } from "./cursor2d.js";
 
 export function initCursor3d(params, camera) {
-  const { initialPosition, minHeight, maxHeight } = params;
+  const { initialPosition, minAlt, maxAlt } = params;
 
   const cursor2d = initCursor2d(params, camera);
 
@@ -11,7 +11,7 @@ export function initCursor3d(params, camera) {
   const zoomPosition = new Float64Array(3);
   // Track target screen ray and altitude for zooming
   const zoomRay = new Float64Array([0.0, 0.0, -1.0, 0.0]);
-  let targetHeight = initialPosition[2];
+  let targetAlt = initialPosition[2];
 
   // Flags about the cursor state
   let onScene = false;
@@ -35,7 +35,7 @@ export function initCursor3d(params, camera) {
     wasTapped: () => wasTapped,
     isZooming: () => zooming,
     zoomFixed: () => zoomFix,
-    zoomTarget: () => targetHeight,
+    zoomTarget: () => targetAlt,
 
     // Functions to update local state
     update,
@@ -70,15 +70,15 @@ export function initCursor3d(params, camera) {
 
     if (cursor2d.zoomed()) {
       zooming = true;
-      targetHeight *= cursor2d.zscale();
-      targetHeight = Math.min(Math.max(minHeight, targetHeight), maxHeight);
+      targetAlt *= cursor2d.zscale();
+      targetAlt = Math.min(Math.max(minAlt, targetAlt), maxAlt);
     }
 
     cursor2d.reset();
   }
 
-  function stopZoom(height) {
+  function stopZoom(alt) {
     zooming = zoomFix = false;
-    if (height !== undefined) targetHeight = height;
+    if (alt !== undefined) targetAlt = alt;
   }
 }

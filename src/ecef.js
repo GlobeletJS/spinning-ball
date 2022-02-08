@@ -1,5 +1,4 @@
 import * as mat4 from "gl-matrix/mat4";
-import { wrapLongitude } from "./coords.js";
 
 export function initECEF(ellipsoid, initialPos) {
   // From the geodetic position, we derive Earth-Centered Earth-Fixed (ECEF)
@@ -21,10 +20,6 @@ export function initECEF(ellipsoid, initialPos) {
   };
 
   function update(geodetic) {
-    // Wrap longitude, clip latitude
-    geodetic[0] = wrapLongitude(geodetic[0]);
-    geodetic[1] = min(max(-PI / 2.0, geodetic[1]), PI / 2.0);
-
     // Compute ECEF coordinates. NOTE WebGL coordinate convention:
     // +x to right, +y to top of screen, and +z into the screen
     ellipsoid.geodetic2ecef(position, geodetic);
