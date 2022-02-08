@@ -744,6 +744,10 @@ function fromYRotation(out, rad) {
 }
 
 function initECEF(ellipsoid, initialPos) {
+  // From the geodetic position, we derive Earth-Centered Earth-Fixed (ECEF)
+  // coordinates and a rotation matrix
+  // These are suitable for rendering Relative To Eye (RTE), as described in
+  // P Cozzi, 3D Engine Design for Virtual Globes, www.virtualglobebook.com
   const position = new Float64Array([0.0, 0.0, 0.0, 1.0]);
   const rotation = create$1();  // Note: single precision!! (Float32Array)
   const inverse  = create$1();
