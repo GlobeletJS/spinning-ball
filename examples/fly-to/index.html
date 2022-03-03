@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>spinning-ball - beta</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="icon" type="image/svg+xml" href="globe.svg">
+
+    <link rel="stylesheet" type="text/css" href="styles.css">
+
+    <script src="main.min.js"></script>
+  </head>
+
+  <body onload="app.main()">
+    <div id="globe">
+      <canvas id="globeCanvas"></canvas>
+      <div class="lonLatInput">
+        <input type="number" id="longitude" value="-0.1276">
+        <input type="number" id="latitude" value="51.5072">
+        <input type="number" id="altitude" value="600">
+        <button id="fly">&#9992;</button>
+      </div>
+    </div>
+  </body>
+</html>

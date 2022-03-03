@@ -1257,6 +1257,93 @@ function initCursor3d(params, camera) {
   }
 }
 
+function interpolateZoom(p0, p1) {
+  const [ux0, uy0, w0] = p0;
+  const [ux1, uy1, w1] = p1;
+
+  const { cosh, sinh, tanh, exp, log, hypot, SQRT2 } = Math;
+  const rho = SQRT2;
+  const epsilon = 1e-6;
+
+  const dx = ux1 - ux0;
+  const dy = uy1 - uy0;
+  const du = hypot(dx, dy);
+
+  const rho2du = rho * rho * du;
+  const uScale = w0 / rho2du;
+
+  const b0 = (w1 * w1 - w0 * w0 + rho2du * rho2du) / (2 * w0 * rho2du);
+  const b1 = (w1 * w1 - w0 * w0 - rho2du * rho2du) / (2 * w1 * rho2du);
+  const r0 = log(hypot(b0, 1) - b0);
+  const r1 = log(hypot(b1, 1) - b1);
+  const coshr0 = cosh(r0);
+  const sinhr0 = sinh(r0);
+
+  const rhoS = (du < epsilon) ? log(w1 / w0) : (r1 - r0);
+
+  function special(t) { // Special case for u0 =~ u1
+    return [
+      ux0 + t * dx,
+      uy0 + t * dy,
+      w0 * exp(rhoS * t),
+    ];
+  }
+
+  function general(t) { // General case
+    const uarg = rhoS * t + r0;
+    const u = uScale * (coshr0 * tanh(uarg) - sinhr0);
+    return [
+      ux0 + u * dx,
+      uy0 + u * dy,
+      w0 * coshr0 / cosh(uarg)
+    ];
+  }
+
+  const interp = (du < epsilon) ? special : general;
+
+  return Object.assign(interp, { duration: rhoS / rho });
+}
+
+function initFlights(camera, radius) {
+  const altScale = 1.0 / (2.0 * radius);
+  let t0, t, interp;
+  let active = false;
+
+  function flyTo(position) {
+    // Scale altitude to be on the same order as lon, lat
+    const [lon0, lat0, alt0] = camera.position();
+    const p0 = [lon0, lat0, alt0 * altScale];
+    const [lon1, lat1, alt1] = position;
+    const p1 = [lon1, lat1, alt1 * altScale];
+
+    // TODO: wrap paths around antimeridian
+    interp = interpolateZoom(p0, p1);
+    t0 = t;
+    active = true;
+  }
+
+  function update(position, velocity, time) {
+    t = time;
+    if (!active) return;
+    // TODO: apply some tweening or similar
+    const dt = (t - t0) / interp.duration;
+    if (dt > 1) return (active = false);
+    const newPos = interp(dt);
+    // Revert scaling of altitude
+    newPos[2] /= altScale;
+
+    // TODO: update velocity
+
+    return position.map((c, i) => newPos[i] - c);
+  }
+
+  return {
+    flyTo, update,
+    active: () => active,
+    cancel: () => (active = false),
+  };
+}
+
 function oscillatorChange(x, v, t, w0) {
   // For a critically damped oscillator with natural frequency w0, find
   // the change in position x and velocity v over timestep t.  See
@@ -1409,7 +1496,7 @@ function initCoast(ellipsoid) {
   };
 }
 
-function initCameraDynamics(ellipsoid, camera, cursor3d) {
+function initCameraDynamics(ellipsoid, camera, cursor3d, flights) {
   // Velocity is the time differential of camera.position
   const velocity = new Float64Array(3);
 
@@ -1435,20 +1522,25 @@ function initCameraDynamics(ellipsoid, camera, cursor3d) {
     // If timestep too big, wait till next frame to update physics
     if (deltaTime > 0.25) return false;
 
-    const rotation = (cursor3d.isClicked())
-      ? rotate(camera.position(), velocity, deltaTime)
-      : coast(camera.position(), velocity, deltaTime);
-    camera.update(rotation);
+    const flightStep = flights.update(camera.position(), velocity, time);
+    if (cursor3d.isClicked()) flights.cancel();
 
-    const rotated = rotation.some(c => c != 0.0);
-    if (!cursor3d.isZooming()) return rotated;
+    const dPos =
+      (cursor3d.isClicked()) ? rotate(camera.position(), velocity, deltaTime) :
+      (flights.active()) ? flightStep :
+      coast(camera.position(), velocity, deltaTime);
+    camera.update(dPos);
 
+    const moved = dPos.some(c => c != 0.0);
+    if (!cursor3d.isZooming()) return moved;
+
+    flights.cancel();
     // Update 2D screen position of 3D zoom position
     const visible = camera.ecefToScreenRay(rayVec, cursor3d.zoomPosition);
     if (!visible) {
       velocity.fill(0.0, 2); // TODO: is this needed? Or keep coasting?
       cursor3d.stopZoom();
-      return rotated;
+      return moved;
     }
 
     if (cursor3d.isClicked()) cursor3d.zoomRay.set(rayVec);
@@ -1464,7 +1556,8 @@ function init(userParams) {
 
   const camera = initCamera(params);
   const cursor = initCursor3d(params, camera);
-  const dynamics = initCameraDynamics(ellipsoid, camera, cursor);
+  const flights = initFlights(camera, ellipsoid.meanRadius());
+  const dynamics = initCameraDynamics(ellipsoid, camera, cursor, flights);
 
   let camMoving, cursorChanged;
 
@@ -1481,6 +1574,7 @@ function init(userParams) {
     wasTapped: cursor.wasTapped,
     cursorChanged: () => cursorChanged,
 
+    flyTo: (destination) => flights.flyTo(units.convert(destination)),
     update,
   };
 

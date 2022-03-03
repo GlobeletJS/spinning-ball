@@ -1,6 +1,7 @@
 import { resizeCanvasToDisplaySize } from "yawgl";
 import * as topojson from "topojson-client";
 import * as spinningBall from "../../";
+import { initFlightButton } from "./flight.js";
 import { setupProjection } from "./projection.js";
 import { initRenderer } from "./render.js";
 
@@ -19,8 +20,10 @@ function getJSON(href) {
 function start([land50m, land110m]) {
   const ball = spinningBall.init({
     display: document.getElementById("globe"),
-    position: [-95.3656049, 29.7537002, 11000],
+    position: [-95.366, 29.754, 11000],
+    minAltitude: 600,
   });
+  initFlightButton(ball);
 
   const canvas = document.getElementById("globeCanvas");
   resizeCanvasToDisplaySize(canvas);
@@ -29,7 +32,7 @@ function start([land50m, land110m]) {
   const renderer = initRenderer(canvas, proj.projection);
   let hiRes = false;
   requestAnimationFrame(animate);
- 
+
   function animate(time) {
     const resized = resizeCanvasToDisplaySize(canvas);
     const moving = ball.update(time * 0.001) || resized;

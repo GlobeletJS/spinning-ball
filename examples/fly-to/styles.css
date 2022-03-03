@@ -1,0 +1,28 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  border: 0;
+  margin: 0;
+}
+#globe {
+  display: block;
+  width: 100%;
+  height: 100vh;
+  padding: 0;
+}
+#globeCanvas {
+  width: 100%;
+  height: 100%;
+}
+.lonLatInput {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 10px;
+}
+.lonLatInput input {
+  width: 10ch;
+  font-family: "Lucida Console", monospace;
+  font-size: 16px;
+}

@@ -82,6 +82,9 @@ Initialization returns an object with the following properties and methods:
     requestAnimationFrame, its argument should be multiplied by 0.001
   - Return value is a flag indicating whether the display should be
     re-rendered, due to motion of the globe or resizing of the display
+- `flyTo(position)`: Starts an animated flight that moves the camera to the
+  provided [position][]. Note: the flight will be stepped through on subsequent
+  calls to `.update`
 
 [yawgl]: https://github.com/GlobeletJS/yawgl
 [position]: #coordinate-convention-for-positions-on-the-globe

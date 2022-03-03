@@ -1,6 +1,7 @@
 import { setParams } from "./params.js";
 import { initCamera } from "./camera.js";
 import { initCursor3d } from "./cursor3d.js";
+import { initFlights } from "./flights.js";
 import { initCameraDynamics } from "./dynamics.js";
 
 export function init(userParams) {
@@ -9,7 +10,8 @@ export function init(userParams) {
 
   const camera = initCamera(params);
   const cursor = initCursor3d(params, camera);
-  const dynamics = initCameraDynamics(ellipsoid, camera, cursor);
+  const flights = initFlights(camera, ellipsoid.meanRadius());
+  const dynamics = initCameraDynamics(ellipsoid, camera, cursor, flights);
 
   let camMoving, cursorChanged;
 
@@ -26,6 +28,7 @@ export function init(userParams) {
     wasTapped: cursor.wasTapped,
     cursorChanged: () => cursorChanged,
 
+    flyTo: (destination) => flights.flyTo(units.convert(destination)),
     update,
   };
 
