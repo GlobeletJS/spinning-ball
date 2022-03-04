@@ -10,7 +10,7 @@ export function init(userParams) {
 
   const camera = initCamera(params);
   const cursor = initCursor3d(params, camera);
-  const flights = initFlights(camera, ellipsoid.meanRadius());
+  const flights = initFlights(params, camera);
   const dynamics = initCameraDynamics(ellipsoid, camera, cursor, flights);
 
   let camMoving, cursorChanged;

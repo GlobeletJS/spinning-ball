@@ -22,18 +22,17 @@ export function initCameraDynamics(ellipsoid, camera, cursor3d, flights) {
   };
 
   function update(newTime) {
-    const deltaTime = newTime - time;
+    const deltaT = newTime - time;
     time = newTime;
     // If timestep too big, wait till next frame to update physics
-    if (deltaTime > 0.25) return false;
+    if (deltaT > 0.25) return false;
 
-    const flightStep = flights.update(camera.position(), velocity, time);
     if (cursor3d.isClicked()) flights.cancel();
 
     const dPos =
-      (cursor3d.isClicked()) ? rotate(camera.position(), velocity, deltaTime) :
-      (flights.active()) ? flightStep :
-      coast(camera.position(), velocity, deltaTime);
+      (cursor3d.isClicked()) ? rotate(camera.position(), velocity, deltaT) :
+      (flights.active()) ? flights.update(camera.position(), velocity, deltaT) :
+      coast(camera.position(), velocity, deltaT);
     camera.update(dPos);
 
     const moved = dPos.some(c => c != 0.0);
@@ -49,7 +48,7 @@ export function initCameraDynamics(ellipsoid, camera, cursor3d, flights) {
     }
 
     if (cursor3d.isClicked()) cursor3d.zoomRay.set(rayVec);
-    const zoomChange = zoom(camera.position(), velocity, deltaTime);
+    const zoomChange = zoom(camera.position(), velocity, deltaT);
     camera.update(zoomChange);
     return true;
   }

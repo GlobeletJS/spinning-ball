@@ -20,10 +20,10 @@ to avoid any oscillation.
 
 Note that the camera and the spherical Earth as modeled by spinning-ball are
 both purely conceptual. To display what would be seen by the camera, a separate
-renderer is required. See the [d3-world-atlas example][] for a demo with a 
+renderer is required. See the [example][] for a demo with a 
 simple D3 renderer.
 
-[d3-world-atlas example]: https://globeletjs.github.io/spinning-ball/examples/d3-world-atlas/index.html
+[example]: https://globeletjs.github.io/spinning-ball/examples/fly-to/index.html
 
 ## Initialization
 A spinning-ball instance can be initialized as follows:
@@ -83,8 +83,10 @@ Initialization returns an object with the following properties and methods:
   - Return value is a flag indicating whether the display should be
     re-rendered, due to motion of the globe or resizing of the display
 - `flyTo(position)`: Starts an animated flight that moves the camera to the
-  provided [position][]. Note: the flight will be stepped through on subsequent
-  calls to `.update`
+  provided [position][]. The supplied position MUST be in the `units` specified
+  on initialization, and within the specified bounds on longitude, latitude,
+  and altitude. Note: the flight will be stepped through on subsequent
+  calls to `.update`, and canceled by any subsequent click/touch action.
 
 [yawgl]: https://github.com/GlobeletJS/yawgl
 [position]: #coordinate-convention-for-positions-on-the-globe

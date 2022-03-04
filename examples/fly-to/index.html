@@ -13,12 +13,15 @@
   </head>
 
   <body onload="app.main()">
-    <div id="globe">
-      <canvas id="globeCanvas"></canvas>
+    <div id="parent">
+      <div id="globe">
+        <canvas id="globeCanvas"></canvas>
+      </div>
       <div class="lonLatInput">
-        <input type="number" id="longitude" value="-0.1276">
-        <input type="number" id="latitude" value="51.5072">
-        <input type="number" id="altitude" value="600">
+        Enter the coordinates of a place you want to fly to:<br>
+        <input type="number" id="longitude" placeholder="&deg;Longitude" value="176">
+        <input type="number" id="latitude" placeholder="&deg;Latitude" value="-38">
+        <input type="number" id="altitude" placeholder="Altitude (km)" value="800">
         <button id="fly">&#9992;</button>
       </div>
     </div>

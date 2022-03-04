@@ -1,35 +1,35 @@
-import { interpolateZoom } from "./flyto.js";
+import { wrapLongitude } from "./bounds.js";
+import { interpolateZoom } from "./zinterp.js";
 
-export function initFlights(camera, radius) {
-  const altScale = 1.0 / (2.0 * radius);
-  let t0, t, interp;
-  let active = false;
+export function initFlights(params, camera) {
+  const { ellipsoid, bounds } = params;
+
+  const wScale = 2.0 / (ellipsoid.meanRadius() * Math.PI);
+  let t, interp, active = false;
 
   function flyTo(position) {
-    // Scale altitude to be on the same order as lon, lat
-    const [lon0, lat0, alt0] = camera.position();
-    const p0 = [lon0, lat0, alt0 * altScale];
-    const [lon1, lat1, alt1] = position;
-    const p1 = [lon1, lat1, alt1 * altScale];
+    if (!bounds.check(position)) {
+      return console.log("spinningBall.flyTo: position out of bounds");
+    }
 
-    // TODO: wrap paths around antimeridian
+    const [lon0, lat0, alt0] = camera.position();
+    const [lon1, lat1, alt1] = position;
+    // Scale altitude to be on the same order as lon, lat, and wrap longitude
+    const p0 = [lon0, lat0, alt0 * wScale];
+    const p1 = [lon0 + wrapLongitude(lon1 - lon0), lat1, alt1 * wScale];
+
     interp = interpolateZoom(p0, p1);
-    t0 = t;
+    t = 0.0;
     active = true;
   }
 
-  function update(position, velocity, time) {
-    t = time;
+  function update(position, velocity, dt) {
     if (!active) return;
-    // TODO: apply some tweening or similar
-    const dt = (t - t0) / interp.duration;
-    if (dt > 1) return (active = false);
-    const newPos = interp(dt);
-    // Revert scaling of altitude
-    newPos[2] /= altScale;
+    t = Math.min(1.0, t + dt / interp.duration);
+    const newPos = interp(t);
+    newPos[2] /= wScale; // Revert scaling applied in flyTo
 
-    // TODO: update velocity
-
+    if (t == 1.0) active = false;
     return position.map((c, i) => newPos[i] - c);
   }
 

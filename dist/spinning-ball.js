@@ -1261,7 +1261,7 @@ function interpolateZoom(p0, p1) {
   const [ux0, uy0, w0] = p0;
   const [ux1, uy1, w1] = p1;
 
-  const { cosh, sinh, tanh, exp, log, hypot, SQRT2 } = Math;
+  const { cosh, sinh, tanh, exp, log, hypot, SQRT2, abs } = Math;
   const rho = SQRT2;
   const epsilon = 1e-6;
 
@@ -1301,39 +1301,38 @@ function interpolateZoom(p0, p1) {
 
   const interp = (du < epsilon) ? special : general;
 
-  return Object.assign(interp, { duration: rhoS / rho });
+  return Object.assign(interp, { duration: abs(rhoS) / rho });
 }
 
-function initFlights(camera, radius) {
-  const altScale = 1.0 / (2.0 * radius);
-  let t0, t, interp;
-  let active = false;
+function initFlights(params, camera) {
+  const { ellipsoid, bounds } = params;
+
+  const wScale = 2.0 / (ellipsoid.meanRadius() * Math.PI);
+  let t, interp, active = false;
 
   function flyTo(position) {
-    // Scale altitude to be on the same order as lon, lat
-    const [lon0, lat0, alt0] = camera.position();
-    const p0 = [lon0, lat0, alt0 * altScale];
-    const [lon1, lat1, alt1] = position;
-    const p1 = [lon1, lat1, alt1 * altScale];
+    if (!bounds.check(position)) {
+      return console.log("spinningBall.flyTo: position out of bounds");
+    }
 
-    // TODO: wrap paths around antimeridian
+    const [lon0, lat0, alt0] = camera.position();
+    const [lon1, lat1, alt1] = position;
+    // Scale altitude to be on the same order as lon, lat, and wrap longitude
+    const p0 = [lon0, lat0, alt0 * wScale];
+    const p1 = [lon0 + wrapLongitude(lon1 - lon0), lat1, alt1 * wScale];
+
     interp = interpolateZoom(p0, p1);
-    t0 = t;
+    t = 0.0;
     active = true;
   }
 
-  function update(position, velocity, time) {
-    t = time;
+  function update(position, velocity, dt) {
     if (!active) return;
-    // TODO: apply some tweening or similar
-    const dt = (t - t0) / interp.duration;
-    if (dt > 1) return (active = false);
-    const newPos = interp(dt);
-    // Revert scaling of altitude
-    newPos[2] /= altScale;
+    t = Math.min(1.0, t + dt / interp.duration);
+    const newPos = interp(t);
+    newPos[2] /= wScale; // Revert scaling applied in flyTo
 
-    // TODO: update velocity
-
+    if (t == 1.0) active = false;
     return position.map((c, i) => newPos[i] - c);
   }
 
@@ -1517,18 +1516,17 @@ function initCameraDynamics(ellipsoid, camera, cursor3d, flights) {
   };
 
   function update(newTime) {
-    const deltaTime = newTime - time;
+    const deltaT = newTime - time;
     time = newTime;
     // If timestep too big, wait till next frame to update physics
-    if (deltaTime > 0.25) return false;
+    if (deltaT > 0.25) return false;
 
-    const flightStep = flights.update(camera.position(), velocity, time);
     if (cursor3d.isClicked()) flights.cancel();
 
     const dPos =
-      (cursor3d.isClicked()) ? rotate(camera.position(), velocity, deltaTime) :
-      (flights.active()) ? flightStep :
-      coast(camera.position(), velocity, deltaTime);
+      (cursor3d.isClicked()) ? rotate(camera.position(), velocity, deltaT) :
+      (flights.active()) ? flights.update(camera.position(), velocity, deltaT) :
+      coast(camera.position(), velocity, deltaT);
     camera.update(dPos);
 
     const moved = dPos.some(c => c != 0.0);
@@ -1544,7 +1542,7 @@ function initCameraDynamics(ellipsoid, camera, cursor3d, flights) {
     }
 
     if (cursor3d.isClicked()) cursor3d.zoomRay.set(rayVec);
-    const zoomChange = zoom(camera.position(), velocity, deltaTime);
+    const zoomChange = zoom(camera.position(), velocity, deltaT);
     camera.update(zoomChange);
     return true;
   }
@@ -1556,7 +1554,7 @@ function init(userParams) {
 
   const camera = initCamera(params);
   const cursor = initCursor3d(params, camera);
-  const flights = initFlights(camera, ellipsoid.meanRadius());
+  const flights = initFlights(params, camera);
   const dynamics = initCameraDynamics(ellipsoid, camera, cursor, flights);
 
   let camMoving, cursorChanged;

@@ -2,7 +2,7 @@ export function interpolateZoom(p0, p1) {
   const [ux0, uy0, w0] = p0;
   const [ux1, uy1, w1] = p1;
 
-  const { cosh, sinh, tanh, exp, log, hypot, SQRT2 } = Math;
+  const { cosh, sinh, tanh, exp, log, hypot, SQRT2, abs } = Math;
   const rho = SQRT2;
   const epsilon = 1e-6;
 
@@ -42,5 +42,5 @@ export function interpolateZoom(p0, p1) {
 
   const interp = (du < epsilon) ? special : general;
 
-  return Object.assign(interp, { duration: rhoS / rho });
+  return Object.assign(interp, { duration: abs(rhoS) / rho });
 }
