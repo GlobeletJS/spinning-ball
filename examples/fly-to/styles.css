@@ -31,11 +31,24 @@ body {
   background-color: rgba(255, 255, 255, 0.75);
 }
 .lonLatInput input {
-  width: 13ch;
+  min-width: 8ch;
+  max-width: 10ch;
   font-size: 16px;
   margin-top: 4px;
 }
 .lonLatInput button {
+  appearance: none;
   -webkit-appearance: none;
   touch-action: manipulation;
+  font-size: 16px;
+  width: 100%;
+  padding: 2px 2px 4px 2px;
+  border: 1px solid grey;
+  margin-top: 4px;
+}
+.lonLatInput table {
+  border: none;
+}
+.big {
+  font-size: 24px;
 }

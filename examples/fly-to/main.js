@@ -20,7 +20,7 @@ function getJSON(href) {
 function start([land50m, land110m]) {
   const ball = spinningBall.init({
     display: document.getElementById("globe"),
-    position: [-95.366, 29.754, 11000],
+    position: [-95.366, 29.754, 20000],
     minAltitude: 600,
   });
   initFlightButton(ball);

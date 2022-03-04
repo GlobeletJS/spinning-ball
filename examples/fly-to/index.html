@@ -18,11 +18,27 @@
         <canvas id="globeCanvas"></canvas>
       </div>
       <div class="lonLatInput">
-        Enter the coordinates of a place you want to fly to:<br>
-        <input type="number" id="longitude" placeholder="&deg;Longitude" value="176">
-        <input type="number" id="latitude" placeholder="&deg;Latitude" value="-38">
-        <input type="number" id="altitude" placeholder="Altitude (km)" value="800">
-        <button id="fly">&#9992;</button>
+        <table>
+          <tr>
+            <td><input type="number" id="longitude" value="176"></td>
+            <td>&deg;Latitude</td>
+          </tr>
+          <tr>
+            <td><input type="number" id="latitude" value="-38"></td>
+            <td>&deg;Longitude</td>
+          </tr>
+          <tr>
+            <td><input type="number" id="altitude" value="800"></td>
+            <td>km Altitude</td>
+          </tr>
+          <tr>
+            <td colspan="2">
+              <button id="fly">Let's go! &nbsp;&nbsp;
+                <span class="big">&#128747;<span>
+              </button>
+            </td>
+          </tr>
+        </table>
       </div>
     </div>
   </body>
